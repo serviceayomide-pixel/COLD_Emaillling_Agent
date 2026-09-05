@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     WIZLEAD_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
     SERPER_API_KEY: str = ""
+    YOUTUBE_API_KEY: str = ""
 
     # SMTP Ghost / Generic SMTP Relay (No longer needed, using Graph API)
     # Kept empty strings for backward compatibility if needed, but not used.
