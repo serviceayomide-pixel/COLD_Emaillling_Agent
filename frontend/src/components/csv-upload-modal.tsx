@@ -101,13 +101,13 @@ export function CsvUploadModal({ isOpen, onClose, onUploadComplete }: { isOpen: 
               className="border-2 border-dashed border-white/10 rounded-xl p-10 flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all"
               onClick={() => fileInputRef.current?.click()}
             >
-              <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileChange} />
+              <input type="file" ref={fileInputRef} className="hidden" accept=".csv, .xlsx, .xls" onChange={handleFileChange} />
               <div className="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
                 <UploadCloud className="h-8 w-8 text-indigo-400" />
               </div>
-              <h3 className="text-lg font-medium text-white mb-2">Click or drag CSV to upload</h3>
+              <h3 className="text-lg font-medium text-white mb-2">Click or drag CSV/Excel to upload</h3>
               <p className="text-sm text-slate-400 max-w-sm">
-                Ensure your CSV has columns like "First Name", "Company Name", and "Email". 
+                Ensure your file has columns like "First Name", "Company Name", and "Email". 
                 Missing emails will be flagged before upload.
               </p>
             </div>
@@ -171,7 +171,7 @@ export function CsvUploadModal({ isOpen, onClose, onUploadComplete }: { isOpen: 
               {isValidating ? (
                 <div className="flex items-center justify-center p-8 text-slate-400">
                   <Loader2 className="h-6 w-6 animate-spin mr-3 text-indigo-400" />
-                  Validating CSV rows...
+                  Validating file rows...
                 </div>
               ) : validationResult && (
                 <div className="space-y-4">

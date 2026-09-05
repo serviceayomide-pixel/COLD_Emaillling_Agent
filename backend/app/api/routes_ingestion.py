@@ -20,8 +20,11 @@ async def upload_csv(
     db: Session = Depends(get_db)
 ):
     """Upload a CSV file and insert leads into the cqc_leads table as a new campaign."""
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="Only CSV files are allowed.")
+    is_excel = file.filename.endswith('.xlsx') or file.filename.endswith('.xls')
+    is_csv = file.filename.endswith('.csv')
+    
+    if not is_csv and not is_excel:
+        raise HTTPException(status_code=400, detail="Only CSV and Excel files (.xlsx, .xls) are allowed.")
         
     is_validate = validate_only.lower() == 'true'
     
@@ -29,19 +32,29 @@ async def upload_csv(
         raise HTTPException(status_code=400, detail="campaign_name is required when inserting.")
     
     contents = await file.read()
+    
+    import pandas as pd
     try:
-        csv_text = contents.decode('utf-8')
-    except UnicodeDecodeError:
-        csv_text = contents.decode('latin-1', errors='ignore')
-        
-    csv_reader = csv.DictReader(io.StringIO(csv_text))
+        if is_excel:
+            df = pd.read_excel(io.BytesIO(contents))
+        else:
+            try:
+                df = pd.read_csv(io.BytesIO(contents), encoding='utf-8')
+            except UnicodeDecodeError:
+                df = pd.read_csv(io.BytesIO(contents), encoding='latin-1')
+                
+        # Fill NaNs with empty string to prevent issues
+        df = df.fillna("")
+        records = df.to_dict(orient="records")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
     
     valid_leads = []
     warnings = []
     
-    for row_idx, row in enumerate(csv_reader, start=2):
-        # Normalize keys for robust matching across different CSV formats
-        normalized_row = {k.lower().strip().replace(' ', '_'): v.strip() if isinstance(v, str) else v for k, v in row.items() if k}
+    for row_idx, row in enumerate(records, start=2):
+        # Normalize keys for robust matching across different formats
+        normalized_row = {str(k).lower().strip().replace(' ', '_'): str(v).strip() for k, v in row.items() if str(k).strip()}
         
         # Support both 'company name', 'name', and 'company_name'
         company_name = normalized_row.get('company_name', normalized_row.get('name', ''))
