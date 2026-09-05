@@ -3,7 +3,13 @@ from datetime import datetime, timezone, timedelta
 from app.core.database import SessionLocal
 from app.models.models import CqcLead, CampaignLog, CampaignMonth
 from app.services import firecrawl, openrouter, email_sender
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
+
+# ── Rate Limiting Configuration ──────────────────────────────────────────────
+# Target: 200 emails per 24 hours = 1 email every 7 minutes 12 seconds (432s)
+DAILY_EMAIL_LIMIT = 200
+SEND_INTERVAL_SECONDS = (24 * 60 * 60) // DAILY_EMAIL_LIMIT  # = 432 seconds (~7.2 min)
+
 
 async def process_lead(db, lead: CqcLead) -> bool:
     """Processes a single lead for the current step in their sequence."""
@@ -88,12 +94,40 @@ async def process_lead(db, lead: CqcLead) -> bool:
 
 
 async def run_pipeline():
-    """Main worker entry point. Runs every minute in test mode."""
+    """Main worker entry point. Runs every minute via Celery Beat."""
     print("Outreach worker pipeline starting check...")
         
     db = SessionLocal()
     try:
         now_date = datetime.now(timezone.utc)
+        
+        # ── RATE LIMIT CHECK ─────────────────────────────────────────────────
+        # Check when the last email was sent across ALL campaigns.
+        # If it was less than SEND_INTERVAL_SECONDS ago, skip this run.
+        last_sent_log = db.query(func.max(CampaignLog.created_at)).filter(
+            CampaignLog.event_type.like('sent_email_%')
+        ).scalar()
+        
+        if last_sent_log:
+            seconds_since_last = (now_date - last_sent_log).total_seconds()
+            if seconds_since_last < SEND_INTERVAL_SECONDS:
+                remaining = int(SEND_INTERVAL_SECONDS - seconds_since_last)
+                print(f"Rate limit: Last email sent {int(seconds_since_last)}s ago. Need {SEND_INTERVAL_SECONDS}s gap. Sleeping for {remaining}s.")
+                return
+        
+        # Also enforce the daily cap: count emails sent in the last 24 hours
+        twenty_four_hours_ago = now_date - timedelta(hours=24)
+        emails_sent_today = db.query(func.count(CampaignLog.id)).filter(
+            CampaignLog.event_type.like('sent_email_%'),
+            CampaignLog.created_at >= twenty_four_hours_ago
+        ).scalar() or 0
+        
+        if emails_sent_today >= DAILY_EMAIL_LIMIT:
+            print(f"Daily limit reached: {emails_sent_today}/{DAILY_EMAIL_LIMIT} emails sent in the last 24 hours. Skipping.")
+            return
+            
+        print(f"Rate limit OK: {emails_sent_today}/{DAILY_EMAIL_LIMIT} emails sent today. Proceeding...")
+        # ── END RATE LIMIT CHECK ─────────────────────────────────────────────
         
         # 1. Transition active month if end date has passed
         ended_month = db.query(CampaignMonth).filter(
@@ -151,7 +185,7 @@ async def run_pipeline():
                     CqcLead.next_email_date <= now_date
                 )
             )
-        ).with_for_update(skip_locked=True).limit(1).all() # Limit to exactly 1 lead per run to space out sending
+        ).with_for_update(skip_locked=True).limit(1).all()
         
         if pending_leads:
             print(f"Found lead due for email in Month {active_month_number}. Starting dispatch...")
@@ -170,7 +204,11 @@ async def run_pipeline():
                 
                 # Queue next month
                 start_date = active_month.end_date
-                end_date = start_date + timedelta(days=30)
+                if start_date:
+                    end_date = start_date + timedelta(days=30)
+                else:
+                    start_date = now_date
+                    end_date = now_date + timedelta(days=30)
                 
                 # Pull next 1000 leads that are enriched (verified)
                 next_leads = db.query(CqcLead).filter(
@@ -200,4 +238,3 @@ async def run_pipeline():
 
 if __name__ == "__main__":
     asyncio.run(run_pipeline())
-

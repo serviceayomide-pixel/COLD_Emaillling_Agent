@@ -28,8 +28,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.outreach_tasks.run_outreach_pipeline",
         "schedule": 60.0, # Every 60 seconds
     },
-    "renew_microsoft_graph_webhooks_daily": {
+    "renew_microsoft_graph_webhooks": {
         "task": "app.tasks.email_tasks.renew_webhooks",
-        "schedule": 86400.0, # Every 24 hours
+        "schedule": 43200.0, # Every 12 hours (safety margin for 2.5-day expiration)
     }
 }

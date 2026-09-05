@@ -3,7 +3,11 @@ from typing import List, Optional
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Client Acquisition AI Engine"
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://frontend-production-cc0b.up.railway.app",
+    ]
     
     # Sender Information
     SENDER_NAME: str = "Gabriel Taylor"
