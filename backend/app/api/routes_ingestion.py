@@ -106,61 +106,65 @@ async def upload_csv(
     db.add(new_campaign)
     db.commit()
     
-    inserted_count = 0
-    duplicate_count = 0
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
     
+    inserted_count = 0
+    
+    # Prepare all lead dictionaries
+    leads_to_insert = []
     for row_data in valid_leads:
         normalized_row, company_name, contact_email, contact_fname, contact_lname = row_data
         
         website_url = normalized_row.get('website_url', normalized_row.get('website', normalized_row.get('url', None)))
         if website_url:
-            website_url = website_url.replace('http://', '').replace('https://', '').strip('/')
+            website_url = str(website_url).replace('http://', '').replace('https://', '').strip('/')
             
         cqc_id = normalized_row.get('cqc_location_id', normalized_row.get('location_id', normalized_row.get('id', None)))
         if not cqc_id:
             cqc_id = uuid.uuid4().hex
             
-        lead = CqcLead(
-            cqc_location_id=cqc_id,
-            company_name=company_name,
-            website_url=website_url,
-            region=normalized_row.get('region', ''),
-            local_authority=normalized_row.get('local_authority', ''),
-            phone=normalized_row.get('phone', normalized_row.get('phone_number', '')),
-            service_type=normalized_row.get('service_type', normalized_row.get('service_types', '')),
-            specialisms=normalized_row.get('specialisms', normalized_row.get('specialisms/services', '')),
-            provider_name=normalized_row.get('provider_name', ''),
-            contact_first_name=contact_fname,
-            contact_last_name=contact_lname,
-            contact_email=contact_email,
-            enrichment_status='enriched', # They already have emails!
-            campaign_status='not_started',
-            campaign_month=next_month_number
+        leads_to_insert.append({
+            'cqc_location_id': str(cqc_id),
+            'company_name': str(company_name),
+            'website_url': website_url,
+            'region': str(normalized_row.get('region', '')),
+            'local_authority': str(normalized_row.get('local_authority', '')),
+            'phone': str(normalized_row.get('phone', normalized_row.get('phone_number', ''))),
+            'service_type': str(normalized_row.get('service_type', normalized_row.get('service_types', ''))),
+            'specialisms': str(normalized_row.get('specialisms', normalized_row.get('specialisms/services', ''))),
+            'provider_name': str(normalized_row.get('provider_name', '')),
+            'contact_first_name': str(contact_fname),
+            'contact_last_name': str(contact_lname),
+            'contact_email': str(contact_email),
+            'enrichment_status': 'enriched',
+            'campaign_status': 'not_started',
+            'campaign_month': next_month_number
+        })
+
+    if leads_to_insert:
+        # Perform Bulk Upsert
+        stmt = pg_insert(CqcLead).values(leads_to_insert)
+        
+        # On conflict (duplicate CQC ID), update the record to use the new campaign and updated contact info
+        update_dict = {
+            'contact_email': stmt.excluded.contact_email,
+            'contact_first_name': stmt.excluded.contact_first_name,
+            'contact_last_name': stmt.excluded.contact_last_name,
+            'campaign_month': stmt.excluded.campaign_month,
+            'campaign_status': 'not_started',
+            'enrichment_status': 'enriched'
+        }
+        
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['cqc_location_id'],
+            set_=update_dict
         )
         
-        db.add(lead)
-        try:
-            db.commit()
-            inserted_count += 1
-        except IntegrityError:
-            db.rollback()
-            # If duplicate cqc_location_id, we just update it
-            existing_lead = db.query(CqcLead).filter(CqcLead.cqc_location_id == cqc_id).first()
-            if existing_lead:
-                existing_lead.contact_email = contact_email
-                existing_lead.contact_first_name = contact_fname
-                existing_lead.contact_last_name = contact_lname
-                existing_lead.campaign_month = next_month_number # Move to the new campaign!
-                existing_lead.campaign_status = 'not_started'
-                existing_lead.enrichment_status = 'enriched'
-                try:
-                    db.commit()
-                    inserted_count += 1 # Technically updated
-                except:
-                    db.rollback()
-                    duplicate_count += 1
-            else:
-                duplicate_count += 1
+        db.execute(stmt)
+        db.commit()
+        inserted_count = len(leads_to_insert)
+    
+    duplicate_count = 0 # No longer skipping duplicates, we seamlessly update them!
             
     # Update total count
     new_campaign.leads_count = inserted_count
