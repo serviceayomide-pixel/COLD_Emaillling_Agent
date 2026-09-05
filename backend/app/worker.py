@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from app.core.database import SessionLocal
 from app.models.models import CqcLead, CampaignLog, CampaignMonth
 from app.services import firecrawl, openrouter, email_sender
+from app.services.youtube_service import youtube_service
 from sqlalchemy import or_, and_, func
 
 # ── Rate Limiting Configuration ──────────────────────────────────────────────
@@ -20,15 +21,29 @@ async def process_lead(db, lead: CqcLead) -> bool:
         context = lead.scraped_content
         if not context:
             print(f"No scraped context found for {lead.company_name}. Scraping via Firecrawl...")
-            domain = lead.website_url or f"{lead.company_name.replace(' ', '')}.com"
-            context = await firecrawl.scrape_company_context(f"https://{domain}")
+            domain = lead.website_url or f"{lead.company_name.replace(' ', '')}.de"
+            if not domain.startswith("http"):
+                url = f"https://{domain}"
+            else:
+                url = domain
+            context = await firecrawl.scrape_company_context(url)
             if context:
                 lead.scraped_content = context
             else:
-                context = f"{lead.company_name} is a healthcare provider in the UK." # Fallback
+                context = f"{lead.company_name} ist ein deutsches Technologie- und Industrieunternehmen."
+        
+        # Perform YouTube audit
+        print(f"Auditing YouTube channel for {lead.company_name}...")
+        youtube_data = await youtube_service.audit_company_youtube(lead.company_name)
                 
-        print(f"Generating personalized email sequence for {lead.contact_first_name}...")
-        email_sequence = await openrouter.generate_email_sequence(lead.contact_first_name, lead.company_name, context)
+        print(f"Generating hyper-personalized German visual storytelling sequence for {lead.contact_first_name}...")
+        email_sequence = await openrouter.generate_email_sequence(
+            contact_name=lead.contact_first_name or "Guten Tag",
+            company_name=lead.company_name,
+            website_context=context,
+            youtube_context=youtube_data,
+            job_title=getattr(lead, "service_type", None) or "Marketing"
+        )
         
         if not email_sequence:
             print(f"Failed to generate sequence for {lead.contact_email}")
@@ -67,16 +82,12 @@ async def process_lead(db, lead: CqcLead) -> bool:
         log = CampaignLog(cqc_location_id=lead.cqc_location_id, event_type=f"sent_{step_key}")
         db.add(log)
         
-        # Schedule next email
+        # Schedule next email (2-step sequence: Email 1 -> Email 2 after 3 days)
         now_date = datetime.now(timezone.utc)
         if lead.sequence_step == 1:
             lead.next_email_date = now_date + timedelta(days=3) # Follow up after 3 days
-        elif lead.sequence_step == 2:
-            lead.next_email_date = now_date + timedelta(days=4) # Follow up after 7 days total (3 + 4 = 7)
-        elif lead.sequence_step == 3:
-            lead.next_email_date = now_date + timedelta(days=7) # Follow up after 14 days total (7 + 7 = 14)
         else:
-            # Reached the end of the sequence
+            # Reached the end of the 2-step German Industrial sequence
             lead.next_email_date = None
             lead.campaign_status = 'finished'
             

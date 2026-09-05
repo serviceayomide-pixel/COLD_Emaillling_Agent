@@ -1,7 +1,16 @@
 import logging
 from typing import Optional, Dict, Any, List
-from googleapiclient.discovery import build
-from youtube_transcript_api import YouTubeTranscriptApi
+
+try:
+    from googleapiclient.discovery import build
+except ImportError:
+    build = None
+
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+except ImportError:
+    YouTubeTranscriptApi = None
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -10,7 +19,7 @@ class YouTubeService:
     def __init__(self):
         self.api_key = settings.YOUTUBE_API_KEY
         self.youtube = None
-        if self.api_key:
+        if self.api_key and build:
             try:
                 self.youtube = build('youtube', 'v3', developerKey=self.api_key, cache_discovery=False)
             except Exception as e:
