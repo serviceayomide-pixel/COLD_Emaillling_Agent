@@ -185,3 +185,17 @@ def update_campaign_prompt(month_number: int, data: PromptUpdateRequest, db: Ses
     db.commit()
     return {"status": "success", "custom_prompt": campaign.custom_prompt}
 
+@router.delete("/campaigns/{month_number}")
+def delete_campaign(month_number: int, db: Session = Depends(get_db)):
+    """Delete a campaign and all its associated leads."""
+    campaign = db.query(CampaignMonth).filter(CampaignMonth.month_number == month_number).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+        
+    # Delete associated leads
+    db.query(CqcLead).filter(CqcLead.campaign_month == month_number).delete(synchronize_session=False)
+    
+    # Delete campaign
+    db.delete(campaign)
+    db.commit()
+    return {"status": "success", "message": f"Campaign {month_number} and its leads deleted successfully."}

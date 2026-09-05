@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap, UploadCloud, Edit3 } from "lucide-react"
+import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap, UploadCloud, Edit3, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
 import { CsvUploadModal } from "@/components/csv-upload-modal"
@@ -71,6 +71,29 @@ export default function CampaignsClient({
       )
     }
     setUpdatingId(null)
+  }
+
+  const handleDeleteCampaign = async (monthNumber: number) => {
+    if (!confirm("Are you sure you want to delete this campaign? This will permanently delete all leads and history associated with it.")) {
+      return
+    }
+    
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://backend-production-cba9a.up.railway.app"
+      const res = await fetch(`${backendUrl}/api/campaigns/${monthNumber}`, {
+        method: "DELETE",
+      })
+      
+      if (!res.ok) {
+        throw new Error("Failed to delete campaign")
+      }
+      
+      setCampaigns(prev => prev.filter(c => c.id !== monthNumber))
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert("Error deleting campaign")
+    }
   }
 
   useEffect(() => {
@@ -203,6 +226,13 @@ export default function CampaignsClient({
                             : "Play"}
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDeleteCampaign(campaign.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold backdrop-blur-xl transition-all ml-2"
+                        title="Delete Campaign"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
 
