@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap } from "lucide-react"
+import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap, UploadCloud } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
+import { CsvUploadModal } from "@/components/csv-upload-modal"
 
 const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
   not_started: { label: "Draft", className: "bg-slate-500/10 text-slate-400 border-slate-500/20", icon: Clock },
@@ -30,6 +31,8 @@ export default function CampaignsClient({
 }) {
   const router = useRouter()
   const [updatingId, setUpdatingId] = useState<number | null>(null)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  
   // Local state so pause/resume is always instant and correct
   const [campaigns, setCampaigns] = useState<any[]>(initialCampaigns ?? [])
 
@@ -106,6 +109,13 @@ export default function CampaignsClient({
             <h2 className="text-xl font-semibold text-white tracking-tight">Campaigns</h2>
             <p className="text-xs text-slate-500 mt-0.5">Manage your automated monthly outreach sequences</p>
           </div>
+          <button 
+            onClick={() => setIsUploadModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium transition-colors"
+          >
+            <UploadCloud className="h-4 w-4" />
+            Upload Leads
+          </button>
         </div>
       </header>
 
@@ -143,7 +153,7 @@ export default function CampaignsClient({
                         <Send className="h-5 w-5 text-indigo-400" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-white tracking-tight">{campaign.name}</h3>
+                        <h3 className="text-lg font-semibold text-white tracking-tight">{campaign.name || `Month ${campaign.id}`}</h3>
                         <div className="flex items-center gap-3 mt-1">
                           <Badge variant="outline" className={`${status.className} text-[10px] font-medium`}>
                             <status.icon className="h-3 w-3 mr-1" />
@@ -155,7 +165,7 @@ export default function CampaignsClient({
                         </div>
                       </div>
                     </div>
-                    {(campaign.status === "active" || campaign.status === "paused") && (
+                    {(campaign.status === "active" || campaign.status === "paused" || campaign.status === "not_started" || campaign.status === "queued") && (
                       <button
                         onClick={() => handleToggleStatus(campaign.id, campaign.status)}
                         disabled={updatingId === campaign.id}
@@ -176,7 +186,7 @@ export default function CampaignsClient({
                           ? "Saving..."
                           : campaign.status === "active"
                           ? "Pause"
-                          : "Resume"}
+                          : "Play"}
                       </button>
                     )}
                   </div>
@@ -213,6 +223,12 @@ export default function CampaignsClient({
           )}
         </div>
       </main>
+      
+      <CsvUploadModal 
+        isOpen={isUploadModalOpen} 
+        onClose={() => setIsUploadModalOpen(false)} 
+        onUploadComplete={() => router.refresh()} 
+      />
     </DashboardLayout>
   )
 }

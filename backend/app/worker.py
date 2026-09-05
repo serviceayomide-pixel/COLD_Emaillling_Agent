@@ -93,34 +93,6 @@ async def run_pipeline():
         
     db = SessionLocal()
     try:
-        # Define the allowed list of test emails
-        ALLOWED_TEST_EMAILS = [
-            "praiseoluu@gmail.com",
-            "arena6663@gmail.com",
-            "wuraola.mathew@lmu.edu.ng",
-            "billy01@ngcag.org",
-            "billy02@ngcag.org",
-            "billy03@ngcag.org",
-            "billy04@ngcag.org",
-            "billy05@ngcag.org",
-            "billy06@ngcag.org",
-            "billy07@ngcag.org",
-            "billy08@ngcag.org",
-            "billy09@ngcag.org",
-            "billy10@ngcag.org",
-            "billy11@ngcag.org",
-            "billy12@ngcag.org",
-            "billy13@ngcag.org",
-            "billy14@ngcag.org",
-            "billy15@ngcag.org",
-            # Also support the .net emails used in lead generation scripts
-            "billy01@gen122.net", "billy02@gen122.net", "billy03@gen122.net",
-            "billy04@gen122.net", "billy05@gen122.net", "billy06@gen122.net",
-            "billy07@gen122.net", "billy08@gen122.net", "billy09@gen122.net",
-            "billy10@gen122.net", "billy11@gen122.net", "billy12@gen122.net",
-            "billy13@gen122.net", "billy14@gen122.net", "billy15@gen122.net"
-        ]
-        
         now_date = datetime.now(timezone.utc)
         
         # 1. Transition active month if end date has passed
@@ -168,7 +140,6 @@ async def run_pipeline():
         # 3. Find leads belonging to the active month that are due for an email
         pending_leads = db.query(CqcLead).filter(
             CqcLead.enrichment_status == 'enriched',
-            CqcLead.contact_email.in_(ALLOWED_TEST_EMAILS),
             CqcLead.campaign_month == active_month_number,
             or_(
                 CqcLead.campaign_status == 'not_started',

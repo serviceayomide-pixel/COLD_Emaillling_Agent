@@ -23,7 +23,7 @@ export default async function CampaignsPage() {
 
     campaignsList.push({
       id: m.month_number,
-      name: `Month ${m.month_number}`,
+      name: m.name || `Month ${m.month_number}`,
       status: m.status,
       leads: metrics?.leads || m.leads_count,
       sent: metrics?.sent || 0,

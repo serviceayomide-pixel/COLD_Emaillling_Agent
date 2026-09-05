@@ -147,7 +147,7 @@ def get_campaign_months(db: Session = Depends(get_db)):
                     
         result.append({
             "id": m.month_number,
-            "name": f"Month {m.month_number}",
+            "name": m.name or f"Month {m.month_number}",
             "status": m.status,
             "leads": total_leads or m.leads_count,
             "sent": sent,

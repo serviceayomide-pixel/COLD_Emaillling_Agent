@@ -58,9 +58,11 @@ class Meeting(Base):
 
 class CampaignMonth(Base):
     __tablename__ = "campaign_months"
-
+    
     month_number = Column(Integer, primary_key=True)
-    status = Column(String(50), default="queued") # 'active', 'queued', 'completed'
+    name = Column(String(255), nullable=True)
+    source_file = Column(String(255), nullable=True)
+    status = Column(String(50), default="queued") # queued, active, paused, completed
     start_date = Column(DateTime(timezone=True))
     end_date = Column(DateTime(timezone=True))
     paused_at = Column(DateTime(timezone=True), nullable=True)
