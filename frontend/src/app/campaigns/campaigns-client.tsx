@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap, UploadCloud } from "lucide-react"
+import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap, UploadCloud, Edit3 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
-import { CsvUploadModal } from "@/components/csv-upload-modal"
+import CsvUploadModal from "@/components/csv-upload-modal"
+import PromptEditorModal from "@/components/prompt-editor-modal"
 
 const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
   not_started: { label: "Draft", className: "bg-slate-500/10 text-slate-400 border-slate-500/20", icon: Clock },
@@ -32,6 +33,7 @@ export default function CampaignsClient({
   const router = useRouter()
   const [updatingId, setUpdatingId] = useState<number | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [editingPromptFor, setEditingPromptFor] = useState<{ id: number, name: string, currentPrompt: string | null } | null>(null)
   
   // Local state so pause/resume is always instant and correct
   const [campaigns, setCampaigns] = useState<any[]>(initialCampaigns ?? [])
@@ -165,30 +167,43 @@ export default function CampaignsClient({
                         </div>
                       </div>
                     </div>
-                    {(campaign.status === "active" || campaign.status === "paused" || campaign.status === "not_started" || campaign.status === "queued") && (
+                    <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleToggleStatus(campaign.id, campaign.status)}
-                        disabled={updatingId === campaign.id}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold backdrop-blur-xl transition-all ${
-                          campaign.status === "active"
-                            ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20"
-                            : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20"
-                        } disabled:opacity-50`}
+                        onClick={() => setEditingPromptFor({ 
+                          id: campaign.id, 
+                          name: campaign.name || `Month ${campaign.id}`, 
+                          currentPrompt: campaign.customPrompt 
+                        })}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/20 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-semibold backdrop-blur-xl transition-all"
                       >
-                        {updatingId === campaign.id ? (
-                          <div className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
-                        ) : campaign.status === "active" ? (
-                          <Pause className="h-3.5 w-3.5" />
-                        ) : (
-                          <Play className="h-3.5 w-3.5" />
-                        )}
-                        {updatingId === campaign.id
-                          ? "Saving..."
-                          : campaign.status === "active"
-                          ? "Pause"
-                          : "Play"}
+                        <Edit3 className="h-3.5 w-3.5" />
+                        Edit Prompt
                       </button>
-                    )}
+                      {(campaign.status === "active" || campaign.status === "paused" || campaign.status === "not_started" || campaign.status === "queued") && (
+                        <button
+                          onClick={() => handleToggleStatus(campaign.id, campaign.status)}
+                          disabled={updatingId === campaign.id}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold backdrop-blur-xl transition-all ${
+                            campaign.status === "active"
+                              ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20"
+                              : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20"
+                          } disabled:opacity-50`}
+                        >
+                          {updatingId === campaign.id ? (
+                            <div className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
+                          ) : campaign.status === "active" ? (
+                            <Pause className="h-3.5 w-3.5" />
+                          ) : (
+                            <Play className="h-3.5 w-3.5" />
+                          )}
+                          {updatingId === campaign.id
+                            ? "Saving..."
+                            : campaign.status === "active"
+                            ? "Pause"
+                            : "Play"}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-4 border-y border-white/[0.06] bg-white/[0.01] px-4 -mx-4 md:px-6 md:-mx-6">
@@ -229,6 +244,17 @@ export default function CampaignsClient({
         onClose={() => setIsUploadModalOpen(false)} 
         onUploadComplete={() => router.refresh()} 
       />
+      
+      {editingPromptFor && (
+        <PromptEditorModal
+          isOpen={true}
+          onClose={() => setEditingPromptFor(null)}
+          campaignId={editingPromptFor.id}
+          campaignName={editingPromptFor.name}
+          currentPrompt={editingPromptFor.currentPrompt}
+          onSave={() => router.refresh()}
+        />
+      )}
     </DashboardLayout>
   )
 }

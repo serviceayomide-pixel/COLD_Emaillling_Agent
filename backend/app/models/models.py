@@ -62,6 +62,8 @@ class CampaignMonth(Base):
     month_number = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=True)
     source_file = Column(String(255), nullable=True)
+    custom_prompt = Column(Text, nullable=True)
+    daily_limit = Column(Integer, default=200)
     status = Column(String(50), default="queued") # queued, active, paused, completed
     start_date = Column(DateTime(timezone=True))
     end_date = Column(DateTime(timezone=True))

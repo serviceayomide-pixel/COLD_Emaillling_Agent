@@ -35,6 +35,13 @@ async def process_lead(db, lead: CqcLead) -> bool:
         # Perform YouTube audit
         print(f"Auditing YouTube channel for {lead.company_name}...")
         youtube_data = await youtube_service.audit_company_youtube(lead.company_name)
+        
+        active_month = db.query(CampaignMonth).filter(CampaignMonth.status == "active").first()
+        if not active_month:
+            print(f"[{datetime.now()}] [Worker] No active CampaignMonth found. Cannot process lead ID {lead.id}.")
+            return False
+            
+        custom_prompt = active_month.custom_prompt
                 
         print(f"Generating hyper-personalized German visual storytelling sequence for {lead.contact_first_name}...")
         email_sequence = await openrouter.generate_email_sequence(
@@ -42,7 +49,8 @@ async def process_lead(db, lead: CqcLead) -> bool:
             company_name=lead.company_name,
             website_context=context,
             youtube_context=youtube_data,
-            job_title=getattr(lead, "service_type", None) or "Marketing"
+            job_title=getattr(lead, "service_type", None) or "Marketing",
+            custom_prompt=custom_prompt
         )
         
         if not email_sequence:
@@ -112,36 +120,6 @@ async def run_pipeline():
     try:
         now_date = datetime.now(timezone.utc)
         
-        # ── RATE LIMIT CHECK ─────────────────────────────────────────────────
-        # Check when the last email was sent across ALL campaigns.
-        # If it was less than SEND_INTERVAL_SECONDS ago, skip this run.
-        last_sent_log = db.query(func.max(CampaignLog.created_at)).filter(
-            CampaignLog.event_type.like('sent_email_%')
-        ).scalar()
-        
-        if last_sent_log:
-            if last_sent_log.tzinfo is None:
-                last_sent_log = last_sent_log.replace(tzinfo=timezone.utc)
-            seconds_since_last = (now_date - last_sent_log).total_seconds()
-            if seconds_since_last < SEND_INTERVAL_SECONDS:
-                remaining = int(SEND_INTERVAL_SECONDS - seconds_since_last)
-                print(f"Rate limit: Last email sent {int(seconds_since_last)}s ago. Need {SEND_INTERVAL_SECONDS}s gap. Sleeping for {remaining}s.")
-                return
-        
-        # Also enforce the daily cap: count emails sent in the last 24 hours
-        twenty_four_hours_ago = now_date - timedelta(hours=24)
-        emails_sent_today = db.query(func.count(CampaignLog.id)).filter(
-            CampaignLog.event_type.like('sent_email_%'),
-            CampaignLog.created_at >= twenty_four_hours_ago
-        ).scalar() or 0
-        
-        if emails_sent_today >= DAILY_EMAIL_LIMIT:
-            print(f"Daily limit reached: {emails_sent_today}/{DAILY_EMAIL_LIMIT} emails sent in the last 24 hours. Skipping.")
-            return
-            
-        print(f"Rate limit OK: {emails_sent_today}/{DAILY_EMAIL_LIMIT} emails sent today. Proceeding...")
-        # ── END RATE LIMIT CHECK ─────────────────────────────────────────────
-        
         # 1. Transition active month if end date has passed
         ended_month = db.query(CampaignMonth).filter(
             CampaignMonth.status == 'active',
@@ -180,7 +158,39 @@ async def run_pipeline():
             else:
                 print("No active or paused campaign month found. Skipping outreach.")
                 return
-                
+
+        # 3. RATE LIMIT CHECK based on campaign's daily limit
+        campaign_daily_limit = active_month.daily_limit or DAILY_EMAIL_LIMIT
+        send_interval_seconds = (24 * 60 * 60) // campaign_daily_limit
+        
+        # Check when the last email was sent across ALL campaigns.
+        last_sent_log = db.query(func.max(CampaignLog.created_at)).filter(
+            CampaignLog.event_type.like('sent_email_%')
+        ).scalar()
+        
+        if last_sent_log:
+            if last_sent_log.tzinfo is None:
+                last_sent_log = last_sent_log.replace(tzinfo=timezone.utc)
+            seconds_since_last = (now_date - last_sent_log).total_seconds()
+            if seconds_since_last < send_interval_seconds:
+                remaining = int(send_interval_seconds - seconds_since_last)
+                print(f"Rate limit: Last email sent {int(seconds_since_last)}s ago. Need {send_interval_seconds}s gap. Sleeping for {remaining}s.")
+                return
+        
+        # Also enforce the daily cap: count emails sent in the last 24 hours
+        twenty_four_hours_ago = now_date - timedelta(hours=24)
+        emails_sent_today = db.query(func.count(CampaignLog.id)).filter(
+            CampaignLog.event_type.like('sent_email_%'),
+            CampaignLog.created_at >= twenty_four_hours_ago
+        ).scalar() or 0
+        
+        if emails_sent_today >= campaign_daily_limit:
+            print(f"Daily limit reached: {emails_sent_today}/{campaign_daily_limit} emails sent in the last 24 hours. Skipping.")
+            return
+            
+        print(f"Rate limit OK: {emails_sent_today}/{campaign_daily_limit} emails sent today. Proceeding...")
+        # ── END RATE LIMIT CHECK ─────────────────────────────────────────────
+
         active_month_number = active_month.month_number
         print(f"Active Campaign Month: Month {active_month_number}")
         

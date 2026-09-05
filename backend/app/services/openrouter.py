@@ -26,18 +26,13 @@ async def generate_email_sequence(
     company_name: str,
     website_context: str,
     youtube_context: Optional[Dict[str, Any]] = None,
-    job_title: Optional[str] = None
+    job_title: Optional[str] = None,
+    custom_prompt: Optional[str] = None
 ) -> Optional[Dict]:
     """
-    Generates a 2-part hyper-personalized cold outreach sequence in native German for German Industrial,
-    Engineering, Manufacturing and Technology companies pitching Technical Visual Storytelling / 3D Animation.
-    
-    Adheres strictly to the user's Master Prompt specifications:
-    - Native, nuanced, non-promotional German
-    - Absolutely ZERO hyphens or dashes anywhere in subject or body
-    - Deep website & product analysis
-    - Deep YouTube audit & video analysis
-    - Low-friction, value-driven CTA
+    Generates a 2-part hyper-personalized cold outreach sequence in native German.
+    If custom_prompt is provided, it uses that instead of the default Master Prompt,
+    but it will always automatically append the strict JSON Output schema to prevent crashes.
     """
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -71,7 +66,17 @@ async def generate_email_sequence(
 
     title_info = f" ({job_title})" if job_title else ""
 
-    prompt = f"""
+    # Base prompt payload creation
+    if custom_prompt and custom_prompt.strip():
+        # Using the user's custom prompt from the dashboard
+        base_prompt = custom_prompt.replace("{contact_name}", contact_name) \
+                                   .replace("{company_name}", company_name) \
+                                   .replace("{job_title}", title_info) \
+                                   .replace("{website_context}", website_context[:4500]) \
+                                   .replace("{youtube_context}", yt_summary)
+    else:
+        # Default German Master Prompt
+        base_prompt = f"""
 MASTER PROMPT
 Hyper Personalized B2B Cold Email for German Industrial, Engineering, Manufacturing and Technology Companies
 
@@ -128,8 +133,11 @@ EMAIL 2 (DAY 3 - FOLLOW UP TOUCH) REQUIREMENTS:
 4. Introduce a second angle or deepen the first thought (e.g. focusing on a specific internal process, trade fair / sales enablement use case, or cross section cutaway).
 5. Very low friction CTA (e.g. offering a quick storyboard or visual sketch with no call required).
 6. Must also strictly contain ZERO hyphens or dashes.
+"""
 
-OUTPUT FORMAT:
+    # ALWAYS append the JSON rule to ensure the system doesn't break
+    json_lock = f"""
+OUTPUT FORMAT (STRICT):
 Return ONLY a valid, raw JSON object (no markdown backticks, no explanatory text outside the JSON) with the following exact keys:
 {{
   "email_1": {{
@@ -142,6 +150,7 @@ Return ONLY a valid, raw JSON object (no markdown backticks, no explanatory text
   }}
 }}
 """
+    prompt = base_prompt + "\n" + json_lock
 
     payload = {
         # Using Claude 3.5 Sonnet for master-level prompt following and strict negative constraint adherence

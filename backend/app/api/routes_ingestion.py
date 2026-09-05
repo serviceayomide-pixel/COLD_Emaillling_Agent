@@ -15,6 +15,8 @@ async def upload_csv(
     file: UploadFile = File(...), 
     validate_only: str = Form("false"),
     campaign_name: str = Form(None),
+    custom_prompt: str = Form(None),
+    daily_limit: int = Form(200),
     db: Session = Depends(get_db)
 ):
     """Upload a CSV file and insert leads into the cqc_leads table as a new campaign."""
@@ -81,6 +83,8 @@ async def upload_csv(
         month_number=next_month_number,
         name=campaign_name,
         source_file=file.filename,
+        custom_prompt=custom_prompt,
+        daily_limit=daily_limit,
         status="paused", # User must explicitly resume it
         start_date=now_utc,
         end_date=None, # TBD or ongoing

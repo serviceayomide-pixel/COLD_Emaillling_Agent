@@ -6,6 +6,8 @@ import { X, UploadCloud, AlertCircle, CheckCircle2, FileText, Loader2 } from "lu
 export function CsvUploadModal({ isOpen, onClose, onUploadComplete }: { isOpen: boolean, onClose: () => void, onUploadComplete: () => void }) {
   const [file, setFile] = useState<File | null>(null)
   const [campaignName, setCampaignName] = useState("")
+  const [dailyLimit, setDailyLimit] = useState<number>(200)
+  const [customPrompt, setCustomPrompt] = useState<string>("")
   const [isValidating, setIsValidating] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [validationResult, setValidationResult] = useState<{ valid_count: number, warnings: string[] } | null>(null)
@@ -54,6 +56,10 @@ export function CsvUploadModal({ isOpen, onClose, onUploadComplete }: { isOpen: 
     formData.append("file", file)
     formData.append("validate_only", "false")
     formData.append("campaign_name", campaignName)
+    formData.append("daily_limit", dailyLimit.toString())
+    if (customPrompt.trim()) {
+      formData.append("custom_prompt", customPrompt)
+    }
     
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://backend-production-cba9a.up.railway.app"
@@ -125,14 +131,40 @@ export function CsvUploadModal({ isOpen, onClose, onUploadComplete }: { isOpen: 
                 </button>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Campaign Name</label>
+                  <input 
+                    type="text" 
+                    value={campaignName}
+                    onChange={(e) => setCampaignName(e.target.value)}
+                    placeholder="e.g. Q3 Outreach"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Daily Email Limit (Across this campaign)</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    max="2000"
+                    value={dailyLimit}
+                    onChange={(e) => setDailyLimit(parseInt(e.target.value) || 200)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Campaign Name</label>
-                <input 
-                  type="text" 
-                  value={campaignName}
-                  onChange={(e) => setCampaignName(e.target.value)}
-                  placeholder="e.g. 600 Marketing Managers - Q3"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
+                  <span>Custom AI Prompt (Optional)</span>
+                  <span className="text-xs text-slate-500">JSON constraints auto-applied</span>
+                </label>
+                <textarea 
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder="Override the master prompt for this specific campaign... (Leave blank for default)"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 min-h-[100px] resize-y"
                 />
               </div>
 

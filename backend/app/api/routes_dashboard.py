@@ -154,7 +154,34 @@ def get_campaign_months(db: Session = Depends(get_db)):
             "opened": opened,
             "replied": replied,
             "startDate": m.start_date.isoformat() if m.start_date else None,
-            "endDate": m.end_date.isoformat() if m.end_date else None
+            "endDate": m.end_date.isoformat() if m.end_date else None,
+            "customPrompt": m.custom_prompt
         })
     return result
+
+from pydantic import BaseModel
+from fastapi import HTTPException
+
+class PromptUpdateRequest(BaseModel):
+    custom_prompt: str
+
+@router.get("/campaigns/{month_number}/prompt")
+def get_campaign_prompt(month_number: int, db: Session = Depends(get_db)):
+    """Retrieve the custom prompt for a specific campaign."""
+    campaign = db.query(CampaignMonth).filter(CampaignMonth.month_number == month_number).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    return {"custom_prompt": campaign.custom_prompt}
+
+@router.put("/campaigns/{month_number}/prompt")
+def update_campaign_prompt(month_number: int, data: PromptUpdateRequest, db: Session = Depends(get_db)):
+    """Update the custom prompt for a specific campaign."""
+    campaign = db.query(CampaignMonth).filter(CampaignMonth.month_number == month_number).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+        
+    campaign.custom_prompt = data.custom_prompt
+    db.commit()
+    return {"status": "success", "custom_prompt": campaign.custom_prompt}
 
