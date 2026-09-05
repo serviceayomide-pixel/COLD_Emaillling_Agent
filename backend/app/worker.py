@@ -109,6 +109,8 @@ async def run_pipeline():
         ).scalar()
         
         if last_sent_log:
+            if last_sent_log.tzinfo is None:
+                last_sent_log = last_sent_log.replace(tzinfo=timezone.utc)
             seconds_since_last = (now_date - last_sent_log).total_seconds()
             if seconds_since_last < SEND_INTERVAL_SECONDS:
                 remaining = int(SEND_INTERVAL_SECONDS - seconds_since_last)
