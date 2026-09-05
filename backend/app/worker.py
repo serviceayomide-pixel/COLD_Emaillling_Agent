@@ -140,82 +140,89 @@ async def run_pipeline():
                 print(f"Campaign Month {next_month.month_number} is now active.")
             db.commit()
             
-        # 2. Get the active campaign month
-        active_month = db.query(CampaignMonth).filter(CampaignMonth.status == 'active').first()
-        if not active_month:
-            # If any month is explicitly paused, respect it and skip sending
-            paused_month = db.query(CampaignMonth).filter(CampaignMonth.status == 'paused').first()
-            if paused_month:
-                print(f"Campaign Month {paused_month.month_number} is PAUSED. Skipping outreach.")
-                return
-                
-            # Fallback/initialize Month 1 to active if it is still queued/not started
+        # 2. Get ALL active campaign months
+        active_campaigns = db.query(CampaignMonth).filter(CampaignMonth.status == 'active').all()
+        
+        # If no active campaigns, check if we need to auto-start month 1
+        if not active_campaigns:
             month1 = db.query(CampaignMonth).filter(CampaignMonth.month_number == 1).first()
             if month1 and month1.status in ('queued', 'not_started'):
                 month1.status = 'active'
                 db.commit()
-                active_month = month1
+                active_campaigns = [month1]
             else:
-                print("No active or paused campaign month found. Skipping outreach.")
+                print("No active campaigns found. Skipping outreach.")
                 return
 
-        # 3. RATE LIMIT CHECK based on campaign's daily limit
-        campaign_daily_limit = active_month.daily_limit or DAILY_EMAIL_LIMIT
-        send_interval_seconds = (24 * 60 * 60) // campaign_daily_limit
-        
-        # Check when the last email was sent across ALL campaigns.
-        last_sent_log = db.query(func.max(CampaignLog.created_at)).filter(
-            CampaignLog.event_type.like('sent_email_%')
-        ).scalar()
-        
-        if last_sent_log:
-            if last_sent_log.tzinfo is None:
-                last_sent_log = last_sent_log.replace(tzinfo=timezone.utc)
-            seconds_since_last = (now_date - last_sent_log).total_seconds()
-            if seconds_since_last < send_interval_seconds:
-                remaining = int(send_interval_seconds - seconds_since_last)
-                print(f"Rate limit: Last email sent {int(seconds_since_last)}s ago. Need {send_interval_seconds}s gap. Sleeping for {remaining}s.")
-                return
-        
-        # Also enforce the daily cap: count emails sent in the last 24 hours
-        twenty_four_hours_ago = now_date - timedelta(hours=24)
-        emails_sent_today = db.query(func.count(CampaignLog.id)).filter(
-            CampaignLog.event_type.like('sent_email_%'),
-            CampaignLog.created_at >= twenty_four_hours_ago
-        ).scalar() or 0
-        
-        if emails_sent_today >= campaign_daily_limit:
-            print(f"Daily limit reached: {emails_sent_today}/{campaign_daily_limit} emails sent in the last 24 hours. Skipping.")
-            return
+        print(f"Found {len(active_campaigns)} active campaigns. Processing concurrently...")
+
+        for active_month in active_campaigns:
+            active_month_number = active_month.month_number
+            campaign_daily_limit = active_month.daily_limit or DAILY_EMAIL_LIMIT
+            send_interval_seconds = (24 * 60 * 60) // campaign_daily_limit
             
-        print(f"Rate limit OK: {emails_sent_today}/{campaign_daily_limit} emails sent today. Proceeding...")
-        # ── END RATE LIMIT CHECK ─────────────────────────────────────────────
-
-        active_month_number = active_month.month_number
-        print(f"Active Campaign Month: Month {active_month_number}")
-        
-        # 3. Find leads belonging to the active month that are due for an email
-        pending_leads = db.query(CqcLead).filter(
-            CqcLead.enrichment_status == 'enriched',
-            CqcLead.campaign_month == active_month_number,
-            or_(
-                CqcLead.campaign_status == 'not_started',
-                and_(
-                    or_(
-                        CqcLead.campaign_status == 'active',
-                        CqcLead.campaign_status == 'out of office'
-                    ),
-                    CqcLead.next_email_date <= now_date
+            # 3. RATE LIMIT CHECK for THIS specific campaign
+            # Check when the last email was sent for THIS campaign
+            last_sent_log = db.query(func.max(CampaignLog.created_at)).join(
+                CqcLead, CampaignLog.cqc_location_id == CqcLead.cqc_location_id
+            ).filter(
+                CampaignLog.event_type.like('sent_email_%'),
+                CqcLead.campaign_month == active_month_number
+            ).scalar()
+            
+            if last_sent_log:
+                if last_sent_log.tzinfo is None:
+                    last_sent_log = last_sent_log.replace(tzinfo=timezone.utc)
+                seconds_since_last = (now_date - last_sent_log).total_seconds()
+                if seconds_since_last < send_interval_seconds:
+                    remaining = int(send_interval_seconds - seconds_since_last)
+                    print(f"[Campaign {active_month_number}] Rate limit: Last email sent {int(seconds_since_last)}s ago. Need {send_interval_seconds}s gap. Skipping.")
+                    continue
+            
+            # Also enforce the daily cap for THIS campaign
+            twenty_four_hours_ago = now_date - timedelta(hours=24)
+            emails_sent_today = db.query(func.count(CampaignLog.id)).join(
+                CqcLead, CampaignLog.cqc_location_id == CqcLead.cqc_location_id
+            ).filter(
+                CampaignLog.event_type.like('sent_email_%'),
+                CampaignLog.created_at >= twenty_four_hours_ago,
+                CqcLead.campaign_month == active_month_number
+            ).scalar() or 0
+            
+            if emails_sent_today >= campaign_daily_limit:
+                print(f"[Campaign {active_month_number}] Daily limit reached: {emails_sent_today}/{campaign_daily_limit} emails sent in the last 24 hours. Skipping.")
+                continue
+                
+            print(f"[Campaign {active_month_number}] Rate limit OK: {emails_sent_today}/{campaign_daily_limit} emails sent today. Proceeding...")
+            
+            # 4. Find leads belonging to THIS active month that are due for an email
+            pending_leads = db.query(CqcLead).filter(
+                CqcLead.enrichment_status == 'enriched',
+                CqcLead.campaign_month == active_month_number,
+                or_(
+                    CqcLead.campaign_status == 'not_started',
+                    and_(
+                        or_(
+                            CqcLead.campaign_status == 'active',
+                            CqcLead.campaign_status == 'out of office'
+                        ),
+                        CqcLead.next_email_date <= now_date
+                    )
                 )
-            )
-        ).with_for_update(skip_locked=True).limit(1).all()
-        
-        if pending_leads:
-            print(f"Found lead due for email in Month {active_month_number}. Starting dispatch...")
-            for lead in pending_leads:
-                await process_lead(db, lead)
-        else:
-            print(f"No pending leads due for emails in Month {active_month_number} right now.")
+            ).with_for_update(skip_locked=True).limit(1).all()
+            
+            if pending_leads:
+                print(f"[Campaign {active_month_number}] Found lead due for email. Starting dispatch...")
+                for lead in pending_leads:
+                    await process_lead(db, lead)
+            else:
+                print(f"[Campaign {active_month_number}] No pending leads due right now.")
+                
+        # (Auto-queue logic remains at the end, handling the *latest* active month, or loop through them)
+        # We will use the last evaluated active_month for the auto-queue logic below, or we could just skip it if not needed, 
+        # but let's keep it based on the first active_month to ensure continuity.
+        active_month = active_campaigns[0]
+        active_month_number = active_month.month_number
             
         # 4. Auto-queue next month in advance
         if active_month:
