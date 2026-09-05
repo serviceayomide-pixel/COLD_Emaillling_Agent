@@ -6,7 +6,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap, UploadCloud, Edit3 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
-import CsvUploadModal from "@/components/csv-upload-modal"
+import { CsvUploadModal } from "@/components/csv-upload-modal"
 import PromptEditorModal from "@/components/prompt-editor-modal"
 
 const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
