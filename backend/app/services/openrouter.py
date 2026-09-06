@@ -153,8 +153,8 @@ Return ONLY a valid, raw JSON object (no markdown backticks, no explanatory text
     prompt = base_prompt + "\n" + json_lock
 
     payload = {
-        # Using Claude 3.5 Sonnet for master-level prompt following and strict negative constraint adherence
-        "model": "anthropic/claude-3.5-sonnet",
+        # Using a free OpenRouter model for testing as requested
+        "model": "meta-llama/llama-3.1-8b-instruct:free",
         "messages": [
             {"role": "user", "content": prompt}
         ],
@@ -176,7 +176,9 @@ Return ONLY a valid, raw JSON object (no markdown backticks, no explanatory text
                 if content.endswith("```"):
                     content = content[:-3]
                 
-                parsed = json.loads(content.strip())
+                # Sanitize the output to remove invalid control characters before parsing
+                sanitized_content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', content)
+                parsed = json.loads(sanitized_content.strip(), strict=False)
                 
                 # Apply strict programmatic sanitation to guarantee ZERO hyphens or dashes in subjects and bodies
                 for key in ["email_1", "email_2"]:
@@ -189,9 +191,9 @@ Return ONLY a valid, raw JSON object (no markdown backticks, no explanatory text
                 return parsed
             else:
                 logger.error(f"OpenRouter API Error: {response.status_code} - {response.text}")
-                # Fallback to Claude 3 Haiku if Sonnet experiences an issue
+                # Fallback to a secondary free model if the first fails
                 fallback_payload = dict(payload)
-                fallback_payload["model"] = "anthropic/claude-3-haiku"
+                fallback_payload["model"] = "google/gemini-flash-1.5-exp"
                 fb_response = await client.post(url, json=fallback_payload, headers=headers, timeout=45.0)
                 if fb_response.status_code == 200:
                     fb_data = fb_response.json()
@@ -235,7 +237,7 @@ Output ONLY the category name. No other text."""
     }
     
     payload = {
-        "model": "anthropic/claude-3-haiku",
+        "model": "meta-llama/llama-3.1-8b-instruct:free",
         "messages": [
             {"role": "user", "content": prompt}
         ],
