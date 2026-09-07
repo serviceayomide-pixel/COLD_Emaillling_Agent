@@ -135,10 +135,10 @@ EMAIL 2 (DAY 3 - FOLLOW UP TOUCH) REQUIREMENTS:
 6. Must also strictly contain ZERO hyphens or dashes.
 """
 
-    # ALWAYS append the JSON rule to ensure the system doesn't break
     json_lock = f"""
 OUTPUT FORMAT (STRICT):
-Return ONLY a valid, raw JSON object (no markdown backticks, no explanatory text outside the JSON) with the following exact keys:
+Return ONLY a valid, raw JSON object (no markdown backticks, no explanatory text outside the JSON) with the exact keys below.
+CRITICAL JSON RULE: You MUST escape any double quotes inside the email body using a backslash (e.g., \\"Beispiel\\") otherwise the JSON will break!
 {{
   "email_1": {{
     "subject": "Kurzer praeziser Betreff ohne Bindestriche",
