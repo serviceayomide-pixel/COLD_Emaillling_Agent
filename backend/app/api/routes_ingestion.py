@@ -152,11 +152,17 @@ async def upload_csv(
             'contact_last_name': stmt.excluded.contact_last_name,
             'campaign_month': stmt.excluded.campaign_month,
             'campaign_status': 'not_started',
-            'enrichment_status': 'enriched'
+            'enrichment_status': 'enriched',
+            'emailed_at': None,
+            'next_email_date': None,
+            'sequence_step': 0,
+            'full_email_sequence': None,
+            'ai_email_subject': None,
+            'ai_email_body': None
         }
         
         stmt = stmt.on_conflict_do_update(
-            index_elements=['cqc_location_id'],
+            index_elements=['cqc_location_id', 'campaign_month'],
             set_=update_dict
         )
         

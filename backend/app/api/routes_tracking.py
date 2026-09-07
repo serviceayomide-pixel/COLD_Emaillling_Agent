@@ -45,6 +45,7 @@ async def track_open(lead_id: str):
                 if not existing:
                     # Log the open event into campaign_logs
                     new_log = CampaignLog(
+                        lead_id=lead.id,
                         cqc_location_id=lead.cqc_location_id,
                         event_type="email_opened"
                     )

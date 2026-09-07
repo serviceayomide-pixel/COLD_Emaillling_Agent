@@ -34,7 +34,7 @@ BEGIN
     SELECT count(*) INTO active_leads_count FROM cqc_leads WHERE campaign_status = 'active';
     
     SELECT count(*) INTO total_emails_sent FROM campaign_logs WHERE event_type = 'email_sent' OR event_type LIKE 'sent_email_%';
-    SELECT count(DISTINCT cqc_location_id) INTO total_emails_opened FROM campaign_logs WHERE event_type = 'email_opened';
+    SELECT count(DISTINCT lead_id) INTO total_emails_opened FROM campaign_logs WHERE event_type = 'email_opened';
     
     SELECT count(*) INTO total_replied_count FROM cqc_leads WHERE campaign_status NOT IN ('not_started', 'active') AND emailed_at IS NOT NULL;
     
@@ -48,7 +48,7 @@ BEGIN
         SELECT 
             to_char(g.day, 'Dy DD') as date,
             COALESCE(SUM(CASE WHEN l.event_type = 'email_sent' OR l.event_type LIKE 'sent_email_%' THEN 1 ELSE 0 END), 0) as sent,
-            COALESCE(COUNT(DISTINCT CASE WHEN l.event_type = 'email_opened' THEN l.cqc_location_id ELSE NULL END), 0) as opened
+            COALESCE(COUNT(DISTINCT CASE WHEN l.event_type = 'email_opened' THEN l.lead_id ELSE NULL END), 0) as opened
         FROM generate_series(
             date_trunc('day', now() - interval '6 days'),
             date_trunc('day', now()),
@@ -90,9 +90,9 @@ BEGIN
     SELECT count(*) INTO sent_count FROM cqc_leads WHERE campaign_month = target_month AND emailed_at IS NOT NULL;
     SELECT count(*) INTO replied_count FROM cqc_leads WHERE campaign_month = target_month AND campaign_status NOT IN ('not_started', 'active');
     
-    SELECT count(DISTINCT l.cqc_location_id) INTO opened_count
+    SELECT count(DISTINCT l.lead_id) INTO opened_count
     FROM campaign_logs l
-    JOIN cqc_leads c ON l.cqc_location_id = c.cqc_location_id
+    JOIN cqc_leads c ON l.lead_id = c.id
     WHERE c.campaign_month = target_month AND l.event_type = 'email_opened';
 
     RETURN json_build_object(
@@ -133,7 +133,7 @@ BEGIN
         SELECT 
             'Week ' || row_number() over (order by g.week) as week,
             COALESCE(SUM(CASE WHEN l.event_type = 'email_sent' OR l.event_type LIKE 'sent_email_%' THEN 1 ELSE 0 END), 0) as sent,
-            COALESCE(COUNT(DISTINCT CASE WHEN l.event_type = 'email_opened' THEN l.cqc_location_id ELSE NULL END), 0) as opened,
+            COALESCE(COUNT(DISTINCT CASE WHEN l.event_type = 'email_opened' THEN l.lead_id ELSE NULL END), 0) as opened,
             COALESCE(SUM(CASE WHEN l.event_type = 'email_replied' OR l.event_type LIKE 'reply_received%' THEN 1 ELSE 0 END), 0) as replied
         FROM generate_series(
             date_trunc('week', now() - interval '3 weeks'),

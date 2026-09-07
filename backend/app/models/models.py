@@ -7,7 +7,7 @@ class CqcLead(Base):
     __tablename__ = "cqc_leads"
 
     id = Column(Integer, primary_key=True, index=True)
-    cqc_location_id = Column(String(50), unique=True, index=True)
+    cqc_location_id = Column(String(50), index=True) # Dropped unique=True to allow same lead in multiple campaigns
     company_name = Column(String(255))
     contact_first_name = Column(String(100))
     contact_last_name = Column(String(100))
@@ -39,6 +39,7 @@ class CampaignLog(Base):
     __tablename__ = "campaign_logs"
 
     id = Column(Integer, primary_key=True, index=True)
+    lead_id = Column(Integer, ForeignKey('cqc_leads.id', ondelete='CASCADE'), index=True, nullable=True)
     cqc_location_id = Column(String(50))
     event_type = Column(String(50))
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -86,8 +86,8 @@ async def process_lead(db, lead: CqcLead) -> bool:
         lead.ai_email_subject = email_to_send.get("subject", "Following up")
         lead.ai_email_body = email_to_send.get("body", "")
         
-        # Log event
-        log = CampaignLog(cqc_location_id=lead.cqc_location_id, event_type=f"sent_{step_key}")
+        # Log the outreach event
+        log = CampaignLog(lead_id=lead.id, cqc_location_id=lead.cqc_location_id, event_type=f"sent_{step_key}")
         db.add(log)
         
         # Schedule next email (2-step sequence: Email 1 -> Email 2 after 3 days)

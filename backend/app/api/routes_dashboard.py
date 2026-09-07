@@ -27,11 +27,15 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     emails_sent = db.query(func.count(CqcLead.id))\
                     .filter(CqcLead.campaign_month == active_month_number, CqcLead.emailed_at.isnot(None)).scalar() or 0
                     
-    # Opened emails for the active month's leads
+    # Opened emails for the active month's leads (only count if the email was actually sent and opened AFTER sending)
     opened_count = db.query(func.count(CampaignLog.id))\
                      .join(CqcLead, CampaignLog.cqc_location_id == CqcLead.cqc_location_id)\
-                     .filter(CqcLead.campaign_month == active_month_number, CampaignLog.event_type == 'email_opened')\
-                     .scalar() or 0
+                     .filter(
+                         CqcLead.campaign_month == active_month_number,
+                         CqcLead.emailed_at.isnot(None),
+                         CampaignLog.event_type == 'email_opened',
+                         CampaignLog.created_at >= CqcLead.emailed_at
+                     ).scalar() or 0
 
     # Replied Leads for the active month
     replied_count = db.query(func.count(CqcLead.id))\
@@ -132,11 +136,15 @@ def get_campaign_months(db: Session = Depends(get_db)):
                  .filter(CqcLead.campaign_month == m.month_number, CqcLead.emailed_at.isnot(None))\
                  .scalar() or 0
         
-        # Opened emails for this month's leads
+        # Opened emails for this month's leads (only count if actually sent and opened AFTER sending)
         opened = db.query(func.count(CampaignLog.id))\
                    .join(CqcLead, CampaignLog.cqc_location_id == CqcLead.cqc_location_id)\
-                   .filter(CqcLead.campaign_month == m.month_number, CampaignLog.event_type == 'email_opened')\
-                   .scalar() or 0
+                   .filter(
+                       CqcLead.campaign_month == m.month_number,
+                       CqcLead.emailed_at.isnot(None),
+                       CampaignLog.event_type == 'email_opened',
+                       CampaignLog.created_at >= CqcLead.emailed_at
+                   ).scalar() or 0
                    
         # Replied leads for this month (status not not_started or active)
         replied = db.query(func.count(CqcLead.id))\
