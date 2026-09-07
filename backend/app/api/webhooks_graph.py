@@ -23,11 +23,13 @@ async def graph_webhook(request: Request, validationToken: Optional[str] = Query
         body = await request.json()
         logger.info(f"Received MS Graph webhook notification: {json.dumps(body)}")
         
-        # Dispatch to Celery for processing in the background (deduplicated in the task)
+        # Process natively in the background
         # We don't want to block the webhook response
         if "value" in body:
+            from app.tasks.email_tasks import process_webhook_async
+            import asyncio
             for notification in body["value"]:
-                process_incoming_webhook.delay(notification)
+                asyncio.create_task(process_webhook_async(notification))
                 
         return Response(status_code=202)
     except Exception as e:

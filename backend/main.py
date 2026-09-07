@@ -15,23 +15,30 @@ from app.core.celery import celery_app
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start APScheduler solely to trigger the MS Graph webhook renewal at startup.
-    # NOTE: The outreach pipeline scheduling is handled exclusively by Celery Beat
-    # (see app/core/celery.py beat_schedule). Do NOT add pipeline triggers here
-    # or tasks will fire twice per interval.
+    # Use APScheduler to run background tasks natively inside the FastAPI container.
+    # This eliminates the need for separate Celery Worker/Beat services on Railway.
     scheduler = AsyncIOScheduler()
 
-    def trigger_renew_webhooks():
-        try:
-            celery_app.send_task("app.tasks.email_tasks.renew_webhooks")
-            print("Triggered MS Graph webhooks renewal task at startup.")
-        except Exception as e:
-            print(f"Error triggering webhooks renewal: {e}")
+    from scripts.manage_graph_webhooks import manage_webhooks
+    from app.worker import run_pipeline
 
-    # Trigger webhook renewal immediately on startup so webhooks are always active
-    scheduler.add_job(trigger_renew_webhooks)
+    def run_webhooks_sync():
+        print("Running scheduled MS Graph webhooks renewal...")
+        asyncio.create_task(manage_webhooks())
+
+    def run_outreach_sync():
+        # print("Triggering 60s outreach pipeline...")
+        asyncio.create_task(run_pipeline())
+
+    # Trigger webhook renewal immediately on startup, then every 12 hours
+    scheduler.add_job(run_webhooks_sync)
+    scheduler.add_job(run_webhooks_sync, 'interval', hours=12)
+    
+    # Trigger the outreach worker every 60 seconds
+    scheduler.add_job(run_outreach_sync, 'interval', seconds=60)
+    
     scheduler.start()
-    print("Server started. Celery Beat handles pipeline scheduling every 60s.")
+    print("Server started. APScheduler is natively handling background tasks.")
 
     yield
     scheduler.shutdown()
