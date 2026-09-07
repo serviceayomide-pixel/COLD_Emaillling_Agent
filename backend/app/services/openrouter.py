@@ -154,7 +154,7 @@ Return ONLY a valid, raw JSON object (no markdown backticks, no explanatory text
 
     payload = {
         # Using a free OpenRouter model for testing as requested
-        "model": "meta-llama/llama-3.1-8b-instruct:free",
+        "model": "anthropic/claude-3-haiku",
         "messages": [
             {"role": "user", "content": prompt}
         ],
@@ -237,7 +237,7 @@ Output ONLY the category name. No other text."""
     }
     
     payload = {
-        "model": "meta-llama/llama-3.1-8b-instruct:free",
+        "model": "anthropic/claude-3-haiku",
         "messages": [
             {"role": "user", "content": prompt}
         ],
