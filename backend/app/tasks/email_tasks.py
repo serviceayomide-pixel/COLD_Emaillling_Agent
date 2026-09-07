@@ -156,7 +156,25 @@ async def process_webhook_async(payload: dict):
             db.add(new_msg)
             db.commit()
 
-            # Process reply classification
+            # Detect if this is an automated bounce/NDR
+            is_bounce = False
+            if "postmaster@" in sender or "microsoftexchange" in sender or "undeliverable" in subject.lower() or "delivery has failed" in body.lower():
+                is_bounce = True
+
+            if is_bounce:
+                print(f"[Webhook] Detected bounce/NDR for lead: {lead.contact_email}")
+                lead.campaign_status = "bounced"
+                
+                log = CampaignLog(
+                    lead_id=lead.id,
+                    cqc_location_id=lead.cqc_location_id,
+                    event_type="email_bounced"
+                )
+                db.add(log)
+                db.commit()
+                return
+
+            # Process reply classification for actual human replies
             previous_status = lead.campaign_status
             intent = await analyze_reply_intent(body)
             intent_lower = intent.lower()

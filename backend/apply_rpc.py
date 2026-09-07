@@ -36,7 +36,7 @@ BEGIN
     SELECT count(*) INTO total_emails_sent FROM campaign_logs WHERE event_type = 'email_sent' OR event_type LIKE 'sent_email_%';
     SELECT count(DISTINCT lead_id) INTO total_emails_opened FROM campaign_logs WHERE event_type = 'email_opened';
     
-    SELECT count(*) INTO total_replied_count FROM cqc_leads WHERE campaign_status NOT IN ('not_started', 'active') AND emailed_at IS NOT NULL;
+    SELECT count(*) INTO total_replied_count FROM cqc_leads WHERE campaign_status NOT IN ('not_started', 'active', 'bounced') AND emailed_at IS NOT NULL;
     
     -- Include 'booked' in 'interested' because anyone who booked was also interested!
     SELECT count(*) INTO total_interested_count FROM cqc_leads WHERE campaign_status IN ('interested', 'booked');
@@ -88,7 +88,7 @@ DECLARE
 BEGIN
     SELECT count(*) INTO leads_count FROM cqc_leads WHERE campaign_month = target_month;
     SELECT count(*) INTO sent_count FROM cqc_leads WHERE campaign_month = target_month AND emailed_at IS NOT NULL;
-    SELECT count(*) INTO replied_count FROM cqc_leads WHERE campaign_month = target_month AND campaign_status NOT IN ('not_started', 'active');
+    SELECT count(*) INTO replied_count FROM cqc_leads WHERE campaign_month = target_month AND campaign_status NOT IN ('not_started', 'active', 'bounced');
     
     SELECT count(DISTINCT l.lead_id) INTO opened_count
     FROM campaign_logs l
@@ -123,7 +123,7 @@ DECLARE
 BEGIN
     SELECT count(*) INTO total_leads_count FROM cqc_leads;
     SELECT count(*) INTO emailed_leads_count FROM campaign_logs WHERE event_type = 'email_sent' OR event_type LIKE 'sent_email_%';
-    SELECT count(*) INTO replied_leads_count FROM cqc_leads WHERE campaign_status NOT IN ('not_started', 'active');
+    SELECT count(*) INTO replied_leads_count FROM cqc_leads WHERE campaign_status NOT IN ('not_started', 'active', 'bounced');
     SELECT count(*) INTO interested_count FROM cqc_leads WHERE campaign_status = 'interested';
     SELECT count(*) INTO booked_count FROM cqc_leads WHERE campaign_status = 'booked';
     SELECT count(*) INTO enriched_count FROM cqc_leads WHERE enrichment_status IN ('enriched', 'done');
