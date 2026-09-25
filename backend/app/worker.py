@@ -144,13 +144,28 @@ async def process_lead(db, lead: CqcLead) -> bool:
         return False
 
 
+import zoneinfo
+
 async def run_pipeline():
     """Main worker entry point. Runs every minute via Celery Beat."""
     print("Outreach worker pipeline starting check...")
+    
+    # HARDCODED RULE: Only send between 7 AM and 3 PM Germany time
+    now_utc = datetime.now(timezone.utc)
+    try:
+        berlin_tz = zoneinfo.ZoneInfo("Europe/Berlin")
+        now_berlin = now_utc.astimezone(berlin_tz)
+        if now_berlin.hour < 7 or now_berlin.hour >= 15:
+            print(f"Current time in Germany is {now_berlin.strftime('%H:%M')}. Outside sending window (07:00 - 15:00). Pausing outreach...")
+            return
+    except Exception as e:
+        print(f"Timezone check failed: {e}. Falling back to UTC 05:00 - 13:00.")
+        if now_utc.hour < 5 or now_utc.hour >= 13:
+            return
         
     db = SessionLocal()
     try:
-        now_date = datetime.now(timezone.utc)
+        now_date = now_utc
         
         # 1. Transition active month if end date has passed
         ended_month = db.query(CampaignMonth).filter(
@@ -188,10 +203,17 @@ async def run_pipeline():
 
         print(f"Found {len(active_campaigns)} active campaigns. Processing concurrently...")
 
+        import random
         for active_month in active_campaigns:
             active_month_number = active_month.month_number
             campaign_daily_limit = active_month.daily_limit or DAILY_EMAIL_LIMIT
-            send_interval_seconds = (24 * 60 * 60) // campaign_daily_limit
+            
+            # 8 hour window (7AM to 3PM) = 28,800 seconds
+            base_interval_seconds = (8 * 60 * 60) // campaign_daily_limit
+            
+            # Add human randomization (jitter) between -30% and +40%
+            # If base is 144s, it will randomly require between 100s and 200s gap
+            jittered_interval = base_interval_seconds * random.uniform(0.7, 1.4)
             
             # 3. RATE LIMIT CHECK for THIS specific campaign
             last_sent_log = db.query(func.max(CampaignLog.created_at)).join(
@@ -205,9 +227,8 @@ async def run_pipeline():
                 if last_sent_log.tzinfo is None:
                     last_sent_log = last_sent_log.replace(tzinfo=timezone.utc)
                 seconds_since_last = (now_date - last_sent_log).total_seconds()
-                if seconds_since_last < send_interval_seconds:
-                    remaining = int(send_interval_seconds - seconds_since_last)
-                    print(f"[Campaign {active_month_number}] Rate limit: Last email sent {int(seconds_since_last)}s ago. Need {send_interval_seconds}s gap. Skipping.")
+                if seconds_since_last < jittered_interval:
+                    print(f"[Campaign {active_month_number}] Rate limit: Last email sent {int(seconds_since_last)}s ago. Random jitter requires {int(jittered_interval)}s gap. Skipping.")
                     continue
             
             # Also enforce the daily cap for THIS campaign
