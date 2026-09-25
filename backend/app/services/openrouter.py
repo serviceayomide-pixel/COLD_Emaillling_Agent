@@ -15,7 +15,6 @@ def strip_hyphens_and_dashes(text: str) -> str:
     if not text:
         return text
     # Replace en-dash, em-dash, minus, hyphen with space or remove
-    # Characters: - (hyphen-minus), – (en dash), — (em dash), ‐ (hyphen), − (minus sign)
     cleaned = re.sub(r'[\u2010-\u2015\u2212\-]', ' ', text)
     # Collapse multiple spaces
     cleaned = re.sub(r' +', ' ', cleaned)
@@ -26,13 +25,13 @@ async def generate_email_sequence(
     company_name: str,
     website_context: str,
     youtube_context: Optional[Dict[str, Any]] = None,
+    linkedin_context: Optional[Dict[str, Any]] = None,
     job_title: Optional[str] = None,
     custom_prompt: Optional[str] = None
 ) -> Optional[Dict]:
     """
     Generates a 2-part hyper-personalized cold outreach sequence in native German.
-    If custom_prompt is provided, it uses that instead of the default Master Prompt,
-    but it will always automatically append the strict JSON Output schema to prevent crashes.
+    Uses Claude Sonnet via OpenRouter. Falls back to Claude 3.5 Sonnet on error.
     """
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -64,6 +63,23 @@ async def generate_email_sequence(
             f"Aktuelle Videos:\n{videos_str}"
         )
 
+    # Format LinkedIn data for the prompt
+    li_summary = "Keine LinkedIn Profildaten vorhanden."
+    if linkedin_context:
+        parts = []
+        if linkedin_context.get("headline"):
+            parts.append(f"Headline: {linkedin_context['headline']}")
+        if linkedin_context.get("about"):
+            parts.append(f"Ueber mich: {linkedin_context['about'][:500]}")
+        if linkedin_context.get("current_company"):
+            parts.append(f"Aktuelles Unternehmen: {linkedin_context['current_company']}")
+        if linkedin_context.get("experience"):
+            parts.append(f"Erfahrung: {linkedin_context['experience']}")
+        if linkedin_context.get("recent_posts"):
+            parts.append(f"Aktuelle Posts:\n{linkedin_context['recent_posts'][:600]}")
+        if parts:
+            li_summary = "\n".join(parts)
+
     title_info = f" ({job_title})" if job_title else ""
 
     # Base prompt payload creation
@@ -72,8 +88,9 @@ async def generate_email_sequence(
         base_prompt = custom_prompt.replace("{contact_name}", contact_name) \
                                    .replace("{company_name}", company_name) \
                                    .replace("{job_title}", title_info) \
-                                   .replace("{website_context}", website_context[:4500]) \
-                                   .replace("{youtube_context}", yt_summary)
+                                   .replace("{website_context}", website_context[:4500] if website_context else "Keine Webseite verfuegbar.") \
+                                   .replace("{youtube_context}", yt_summary) \
+                                   .replace("{linkedin_context}", li_summary)
     else:
         # Default German Master Prompt
         base_prompt = f"""
@@ -111,19 +128,25 @@ Example: instead of "End to End", write "von Anfang bis Ende". Instead of "3D An
 
 RESEARCH DATA PROVIDED FOR THIS COMPANY:
 [COMPANY WEBSITE CONTEXT]
-{website_context[:4500]}
+{website_context[:4500] if website_context else "Keine Webseite verfuegbar. Nutze den Firmennamen und die allgemeine Branchenkenntnis fuer die Personalisierung."}
 
 [YOUTUBE CHANNEL AUDIT DATA]
 {yt_summary}
 
+[LINKEDIN PROFILE DATA]
+{li_summary}
+
+PERSONALIZATION INSTRUCTIONS:
+Use ALL available research data above to personalize the emails. If a company has a website, reference specific products or services from the website context. If a YouTube channel exists, reference specific videos or content strategy. If LinkedIn data is available, reference the contact's headline, role, or recent activity. If some data sources are unavailable, focus the personalization on whichever data IS available. Even if NO research data is available, write a strong email using the company name and industry context.
+
 EMAIL 1 (DAY 1 - INITIAL OUTREACH) REQUIREMENTS:
-1. Conduct research based on the provided website and YouTube data.
+1. Conduct research based on the provided website, YouTube, and LinkedIn data.
 2. Structure:
    - Paragraph 1: Specific observation about the company's product, technology, or current communication.
    - Paragraph 2: Communication insight (what live video or text shows vs what remains invisible like internal mechanics, fluid dynamics, flow of energy or data).
    - Paragraph 3: Visual opportunity (position visual storytelling as an additional layer, not a replacement).
    - Paragraph 4: Concrete visualization idea for one specific product or technology of {company_name}.
-   - Paragraph 5: Low friction CTA (e.g. "Wenn das grundsaetzlich interessant ist, kann ich Ihnen gern einmal skizzieren, wie ich das fuer [Produkt] visuell aufbauen wuerde.").
+   - Paragraph 5: Low friction CTA (e.g. "Wenn das grundsaetzlich interessant ist, kann ich Ihnen gern einmal skizieren, wie ich das fuer [Produkt] visuell aufbauen wuerde.").
 3. Tone: Respectful, observant, professional, no hype, no hard sales pitch.
 
 EMAIL 2 (DAY 3 - FOLLOW UP TOUCH) REQUIREMENTS:
@@ -153,8 +176,7 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
     prompt = base_prompt + "\n" + json_lock
 
     payload = {
-        # Using a free OpenRouter model for testing as requested
-        "model": "anthropic/claude-3-haiku",
+        "model": "anthropic/claude-sonnet-4.6",
         "messages": [
             {"role": "user", "content": prompt}
         ],
@@ -180,7 +202,7 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
                 sanitized_content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', content)
                 parsed = json.loads(sanitized_content.strip(), strict=False)
                 
-                # Apply strict programmatic sanitation to guarantee ZERO hyphens or dashes in subjects and bodies
+                # Apply strict programmatic sanitation to guarantee ZERO hyphens or dashes
                 for key in ["email_1", "email_2"]:
                     if key in parsed:
                         if "subject" in parsed[key]:
@@ -191,10 +213,10 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
                 return parsed
             else:
                 logger.error(f"OpenRouter API Error: {response.status_code} - {response.text}")
-                # Fallback to a secondary free model if the first fails
+                # Fallback to Claude 3.5 Sonnet
                 fallback_payload = dict(payload)
-                fallback_payload["model"] = "google/gemini-flash-1.5-exp"
-                fb_response = await client.post(url, json=fallback_payload, headers=headers, timeout=45.0)
+                fallback_payload["model"] = "anthropic/claude-3.5-sonnet"
+                fb_response = await client.post(url, json=fallback_payload, headers=headers, timeout=90.0)
                 if fb_response.status_code == 200:
                     fb_data = fb_response.json()
                     fb_content = fb_data["choices"][0]["message"]["content"].strip()
@@ -213,6 +235,64 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
     except Exception as e:
         logger.error(f"Error generating German email sequence for {contact_name} at {company_name}: {e}")
         return None
+
+
+async def classify_auto_reply(subject: str, body: str) -> str:
+    """
+    Uses GPT-4o-mini to classify whether an incoming email is a real human reply
+    or an automatic reply (Out of Office, auto-responder, delivery notification, etc).
+    Returns: 'real_reply' or 'auto_reply'
+    """
+    prompt = f"""You are classifying an incoming email to determine if it was written by a real human or if it is an automated system response.
+
+CLASSIFY as 'auto_reply' if the message is:
+- An Out of Office / Abwesenheitsnotiz / Automatische Antwort
+- An auto-responder or vacation reply
+- A system-generated delivery notification
+- A "this mailbox is not monitored" message
+- Any automated response not written by a human
+
+CLASSIFY as 'real_reply' if the message is:
+- Written by a real person responding to the original email
+- Contains original thoughts, questions, or feedback from a human
+- Even if short (e.g. "Danke", "Kein Interesse", "Bitte senden Sie mir mehr Informationen")
+
+Email Subject: "{subject}"
+Email Body: "{body[:500]}"
+
+Output ONLY one of these two words: real_reply or auto_reply"""
+
+    headers = {
+        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.0
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=10.0
+            )
+            data = response.json()
+            result = data['choices'][0]['message']['content'].strip().lower()
+            if "auto_reply" in result:
+                return "auto_reply"
+            return "real_reply"
+    except Exception as e:
+        logger.error(f"Error classifying auto-reply: {e}")
+        # Default to real_reply to be safe (stops the sequence)
+        return "real_reply"
+
 
 async def analyze_reply_intent(email_body: str) -> str:
     """Uses Claude to classify the intent of a reply in German or English."""

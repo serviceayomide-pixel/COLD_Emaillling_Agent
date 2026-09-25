@@ -14,6 +14,7 @@ class CqcLead(Base):
     contact_email = Column(String(255))
     phone = Column(String(50))
     website_url = Column(String(255))
+    linkedin_url = Column(String(500), nullable=True)
     service_type = Column(Text)
     specialisms = Column(Text)
     provider_name = Column(String(255))

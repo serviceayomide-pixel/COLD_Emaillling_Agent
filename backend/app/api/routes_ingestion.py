@@ -123,10 +123,17 @@ async def upload_csv(
         if not cqc_id:
             cqc_id = uuid.uuid4().hex
             
+        linkedin_url = normalized_row.get('linkedin_url', normalized_row.get('linkedin', normalized_row.get('linkedin_profile', None)))
+        if linkedin_url:
+            linkedin_url = str(linkedin_url).strip()
+            if linkedin_url and linkedin_url.lower() in ('', 'nan', 'none', 'n/a'):
+                linkedin_url = None
+            
         leads_to_insert.append({
             'cqc_location_id': str(cqc_id),
             'company_name': str(company_name),
             'website_url': website_url,
+            'linkedin_url': linkedin_url,
             'region': str(normalized_row.get('region', '')),
             'local_authority': str(normalized_row.get('local_authority', '')),
             'phone': str(normalized_row.get('phone', normalized_row.get('phone_number', ''))),

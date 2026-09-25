@@ -1,13 +1,8 @@
 from fastapi import APIRouter
 from fastapi.responses import Response
-from supabase import create_client, Client
-from app.core.config import settings
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 router = APIRouter()
-
-# We will instantiate the client inside the route to prevent import-time crashes
-# if the environment variable is missing during build/startup.
 
 # A 1x1 transparent GIF pixel (43 bytes)
 TRANSPARENT_PIXEL = bytes([
@@ -31,19 +26,37 @@ async def track_open(lead_id: str):
         db = SessionLocal()
         
         try:
-            # Look up the lead to get the cqc_location_id
             from app.models.models import CqcLead, CampaignLog
             lead = db.query(CqcLead).filter(CqcLead.id == lead_id).first()
 
             if lead:
-                # Check if an email_opened event already exists for this lead
+                # ANTI-FALSE-OPEN: When the sender views their own sent items,
+                # Outlook loads the pixel too. Ignore opens within 2 minutes of sending.
+                if lead.emailed_at:
+                    emailed_at = lead.emailed_at
+                    if emailed_at.tzinfo is None:
+                        emailed_at = emailed_at.replace(tzinfo=timezone.utc)
+                    seconds_since_sent = (datetime.now(timezone.utc) - emailed_at).total_seconds()
+                    if seconds_since_sent < 120:
+                        print(f"Lead {lead_id} open ignored (only {int(seconds_since_sent)}s after send — likely sender viewing sent items)")
+                        # Still return the pixel but don't log
+                        return Response(
+                            content=TRANSPARENT_PIXEL,
+                            media_type="image/gif",
+                            headers={
+                                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                                "Pragma": "no-cache",
+                                "Expires": "0"
+                            }
+                        )
+
+                # Check if an email_opened event already exists for THIS specific lead
                 existing = db.query(CampaignLog).filter(
-                    CampaignLog.cqc_location_id == lead.cqc_location_id,
+                    CampaignLog.lead_id == lead.id,
                     CampaignLog.event_type == 'email_opened'
                 ).first()
                     
                 if not existing:
-                    # Log the open event into campaign_logs
                     new_log = CampaignLog(
                         lead_id=lead.id,
                         cqc_location_id=lead.cqc_location_id,
@@ -60,7 +73,6 @@ async def track_open(lead_id: str):
             db.close()
 
     except Exception as e:
-        # Never fail the pixel response — silently log the error
         print(f"Error tracking open for lead {lead_id}: {e}")
 
     # Always return the transparent pixel so the email renders correctly

@@ -4,6 +4,7 @@ from app.core.database import SessionLocal
 from app.models.models import CqcLead, CampaignLog, CampaignMonth
 from app.services import firecrawl, openrouter, email_sender
 from app.services.youtube_service import youtube_service
+from app.services.linkedin_service import scrape_linkedin_profile
 from sqlalchemy import or_, and_, func
 
 # ── Rate Limiting Configuration ──────────────────────────────────────────────
@@ -18,10 +19,12 @@ async def process_lead(db, lead: CqcLead) -> bool:
     
     # Generate Sequence if this is the first time
     if lead.sequence_step == 0 or not lead.full_email_sequence:
+        
+        # ── ENRICHMENT STEP 1: Website scraping via Firecrawl (optional) ──
         context = lead.scraped_content
-        if not context:
-            print(f"No scraped context found for {lead.company_name}. Scraping via Firecrawl...")
-            domain = lead.website_url or f"{lead.company_name.replace(' ', '')}.de"
+        if not context and lead.website_url:
+            print(f"Scraping website for {lead.company_name} via Firecrawl...")
+            domain = lead.website_url
             if not domain.startswith("http"):
                 url = f"https://{domain}"
             else:
@@ -29,13 +32,34 @@ async def process_lead(db, lead: CqcLead) -> bool:
             context = await firecrawl.scrape_company_context(url)
             if context:
                 lead.scraped_content = context
+        
+        if not context:
+            # No website available or scrape failed — continue without it
+            context = None
+            print(f"No website data available for {lead.company_name}. Will use other data sources.")
+        
+        # ── ENRICHMENT STEP 2: YouTube audit (optional) ──
+        youtube_data = None
+        if lead.company_name:
+            print(f"Auditing YouTube channel for {lead.company_name}...")
+            youtube_data = await youtube_service.audit_company_youtube(lead.company_name)
+            if youtube_data and youtube_data.get("error"):
+                print(f"YouTube audit returned no data: {youtube_data.get('error')}")
+                youtube_data = None
+
+        # ── ENRICHMENT STEP 3: LinkedIn profile via Apify (optional) ──
+        linkedin_data = None
+        if lead.linkedin_url:
+            print(f"Scraping LinkedIn profile for {lead.contact_first_name} {lead.contact_last_name}...")
+            linkedin_data = await scrape_linkedin_profile(lead.linkedin_url)
+            if linkedin_data:
+                print(f"LinkedIn data retrieved: {linkedin_data.get('headline', 'N/A')}")
             else:
-                context = f"{lead.company_name} ist ein deutsches Technologie- und Industrieunternehmen."
-        
-        # Perform YouTube audit
-        print(f"Auditing YouTube channel for {lead.company_name}...")
-        youtube_data = await youtube_service.audit_company_youtube(lead.company_name)
-        
+                print(f"LinkedIn scrape returned no data for {lead.linkedin_url}")
+        else:
+            print(f"No LinkedIn URL for {lead.contact_first_name}. Skipping LinkedIn enrichment.")
+
+        # ── Get the active campaign's custom prompt ──
         active_month = db.query(CampaignMonth).filter(CampaignMonth.status == "active").first()
         if not active_month:
             print(f"[{datetime.now()}] [Worker] No active CampaignMonth found. Cannot process lead ID {lead.id}.")
@@ -43,12 +67,16 @@ async def process_lead(db, lead: CqcLead) -> bool:
             
         custom_prompt = active_month.custom_prompt
                 
+        # ── Generate the email sequence using all available data ──
         print(f"Generating hyper-personalized German visual storytelling sequence for {lead.contact_first_name}...")
+        print(f"  Data sources: Website={'Yes' if context else 'No'} | YouTube={'Yes' if youtube_data else 'No'} | LinkedIn={'Yes' if linkedin_data else 'No'}")
+        
         email_sequence = await openrouter.generate_email_sequence(
             contact_name=lead.contact_first_name or "Guten Tag",
             company_name=lead.company_name,
-            website_context=context,
+            website_context=context or "",
             youtube_context=youtube_data,
+            linkedin_context=linkedin_data,
             job_title=getattr(lead, "service_type", None) or "Marketing",
             custom_prompt=custom_prompt
         )
@@ -162,7 +190,6 @@ async def run_pipeline():
             send_interval_seconds = (24 * 60 * 60) // campaign_daily_limit
             
             # 3. RATE LIMIT CHECK for THIS specific campaign
-            # Check when the last email was sent for THIS campaign
             last_sent_log = db.query(func.max(CampaignLog.created_at)).join(
                 CqcLead, CampaignLog.cqc_location_id == CqcLead.cqc_location_id
             ).filter(
@@ -218,13 +245,10 @@ async def run_pipeline():
             else:
                 print(f"[Campaign {active_month_number}] No pending leads due right now.")
                 
-        # (Auto-queue logic remains at the end, handling the *latest* active month, or loop through them)
-        # We will use the last evaluated active_month for the auto-queue logic below, or we could just skip it if not needed, 
-        # but let's keep it based on the first active_month to ensure continuity.
+        # Auto-queue next month in advance
         active_month = active_campaigns[0]
         active_month_number = active_month.month_number
             
-        # 4. Auto-queue next month in advance
         if active_month:
             next_month_number = active_month_number + 1
             next_month_exists = db.query(CampaignMonth).filter(CampaignMonth.month_number == next_month_number).first()

@@ -17,9 +17,11 @@ def inject_tracking_pixel(html_body: str, lead_id: int) -> str:
         base_url = f"https://{base_url}"
 
     pixel_url = f"{base_url}/api/tracking/open/{lead_id}"
+    # NOTE: Do NOT use display:none — Gmail and Outlook strip display:none elements entirely.
+    # Use opacity:0 instead so the pixel is invisible but still loaded by the email client.
     pixel_tag = (
         f'<img src="{pixel_url}" width="1" height="1" '
-        f'style="display:none;width:1px;height:1px;border:0;" alt="" />'
+        f'style="width:1px;height:1px;border:0;opacity:0;" alt="" />'
     )
     return html_body + pixel_tag
 
@@ -39,12 +41,20 @@ async def send_email(to_email: str, subject: str, body: str, lead_id: int = None
         print("Missing MICROSOFT_EMAIL in .env. Cannot send email.")
         return False
 
-    # Format the body to use HTML breaks for proper rendering
-    html_body = body.replace('\n', '<br>')
+    # Format the body with proper HTML structure so email clients render images correctly
+    body_html = body.replace('\n', '<br>')
+    
+    html_body = (
+        '<html>'
+        '<body style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">'
+        f'{body_html}'
+    )
 
     # Inject the invisible tracking pixel if we have a lead_id
     if lead_id is not None:
         html_body = inject_tracking_pixel(html_body, lead_id)
+
+    html_body += '</body></html>'
 
     url = f"https://graph.microsoft.com/v1.0/users/{email_address}/sendMail"
     

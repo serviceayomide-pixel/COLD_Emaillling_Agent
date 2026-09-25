@@ -22,7 +22,7 @@ async def process_webhook_async(payload: dict):
     from app.services.imap_reader import get_graph_token
     from app.core.database import SessionLocal
     from app.models.models import CqcLead, CampaignLog, OutlookMessage
-    from app.services.openrouter import analyze_reply_intent
+    from app.services.openrouter import analyze_reply_intent, classify_auto_reply
     import httpx
     from datetime import datetime, timezone, timedelta
 
@@ -156,7 +156,7 @@ async def process_webhook_async(payload: dict):
             db.add(new_msg)
             db.commit()
 
-            # Detect if this is an automated bounce/NDR
+            # ── Step 1: Detect bounce/NDR ──
             is_bounce = False
             if "postmaster@" in sender or "microsoftexchange" in sender or "undeliverable" in subject.lower() or "delivery has failed" in body.lower():
                 is_bounce = True
@@ -164,6 +164,7 @@ async def process_webhook_async(payload: dict):
             if is_bounce:
                 print(f"[Webhook] Detected bounce/NDR for lead: {lead.contact_email}")
                 lead.campaign_status = "bounced"
+                lead.next_email_date = None  # Stop the sequence
                 
                 log = CampaignLog(
                     lead_id=lead.id,
@@ -174,38 +175,47 @@ async def process_webhook_async(payload: dict):
                 db.commit()
                 return
 
-            # Process reply classification for actual human replies
+            # ── Step 2: Use GPT-4o-mini to classify: real reply vs auto-reply ──
+            reply_type = await classify_auto_reply(subject, body)
+            print(f"[Webhook] GPT-4o-mini classified reply from {lead.contact_email} as: {reply_type}")
+
+            if reply_type == "auto_reply":
+                # Auto-reply (Out of Office) — DO NOT stop the sequence, just reschedule
+                print(f"[Webhook] Auto-reply detected from {lead.contact_email}. Rescheduling follow-up in 7 days.")
+                lead.campaign_status = "out of office"
+                lead.next_email_date = datetime.now(timezone.utc) + timedelta(days=7)
+                
+                log = CampaignLog(
+                    lead_id=lead.id,
+                    cqc_location_id=lead.cqc_location_id,
+                    event_type="reply_received: auto_reply"
+                )
+                db.add(log)
+                db.commit()
+                return
+
+            # ── Step 3: Real human reply — classify intent and STOP sequence ──
             previous_status = lead.campaign_status
             intent = await analyze_reply_intent(body)
             intent_lower = intent.lower()
             print(f"[Webhook] AI classified reply intent for {lead.company_name} as: {intent}")
             
             log = CampaignLog(
+                lead_id=lead.id,
                 cqc_location_id=lead.cqc_location_id,
                 event_type=f"reply_received: {intent_lower}"
             )
             db.add(log)
             
-            if intent_lower in ["not interested", "wrong contact"]:
-                print(f"Negative reply from {lead.contact_email}. Keeping lead in database and setting status to {intent_lower}.")
-                lead.campaign_status = intent_lower
-                db.commit()
-            elif intent_lower == "out of office":
-                print(f"Out of office reply from {lead.contact_email}. Rescheduling campaign in 7 days.")
-                lead.campaign_status = "out of office"
-                lead.next_email_date = datetime.now(timezone.utc) + timedelta(days=7)
-                db.commit()
-            else:
-                lead.campaign_status = intent_lower
-                db.commit()
-
-                if intent_lower == "interested" and previous_status not in ["interested", "booked"]:
-                    from app.services.auto_reply import send_cal_link
-                    await send_cal_link(sender, message_id)
+            # For ALL real human replies: set the status AND stop the sequence
+            lead.campaign_status = intent_lower
+            lead.next_email_date = None  # STOP the follow-up sequence
+            db.commit()
+            
+            print(f"[Webhook] Sequence STOPPED for {lead.contact_email} (status: {intent_lower})")
 
     except Exception as e:
         db.rollback()
         print(f"Error processing webhook payload: {e}")
     finally:
         db.close()
-    # asyncio.run(process_webhook_async(webhook_payload))
