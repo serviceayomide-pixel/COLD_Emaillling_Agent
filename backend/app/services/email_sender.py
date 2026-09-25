@@ -44,10 +44,19 @@ async def send_email(to_email: str, subject: str, body: str, lead_id: int = None
     # Format the body with proper HTML structure so email clients render images correctly
     body_html = body.replace('\n', '<br>')
     
+    signature_html = """
+    <br><br>
+    Mit freundlichen Grüßen<br><br>
+    <b>Boluwaji Ominiran</b><br>
+    Geschäftsführer | Starlight Visual Studio<br>
+    starlightvisualstudio.de
+    """
+
     html_body = (
         '<html>'
         '<body style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">'
         f'{body_html}'
+        f'{signature_html}'
     )
 
     # Inject the invisible tracking pixel if we have a lead_id

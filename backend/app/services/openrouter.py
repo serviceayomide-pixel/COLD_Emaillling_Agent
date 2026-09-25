@@ -165,11 +165,11 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
 {{
   "email_1": {{
     "subject": "Kurzer praeziser Betreff ohne Bindestriche",
-    "body": "Vollstaendiger deutscher Emailtext ohne jegliche Bindestriche oder Gedankenstriche\\n\\nBeste Gruesse\\n{settings.SENDER_NAME}\\n{settings.COMPANY_NAME}"
+    "body": "Vollstaendiger deutscher Emailtext ohne jegliche Bindestriche oder Gedankenstriche (Keine Signatur oder Schlussformel am Ende hinzufuegen)"
   }},
   "email_2": {{
     "subject": "Neuer Betreff fuer den Follow up ohne Bindestriche",
-    "body": "Vollstaendiger deutscher Follow up Text ohne jegliche Bindestriche oder Gedankenstriche\\n\\nBeste Gruesse\\n{settings.SENDER_NAME}\\n{settings.COMPANY_NAME}"
+    "body": "Vollstaendiger deutscher Follow up Text ohne jegliche Bindestriche oder Gedankenstriche (Keine Signatur oder Schlussformel am Ende hinzufuegen)"
   }}
 }}
 """
