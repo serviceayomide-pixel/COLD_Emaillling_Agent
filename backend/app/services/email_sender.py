@@ -47,9 +47,11 @@ async def send_email(to_email: str, subject: str, body: str, lead_id: int = None
     signature_html = """
     <br><br>
     Mit freundlichen Grüßen<br><br>
-    <b>Boluwaji Ominiran</b><br>
-    Geschäftsführer | Starlight Visual Studio<br>
-    starlightvisualstudio.de
+    <div style="font-size: 12px; color: #555555; line-height: 1.5;">
+        <b>Boluwaji Ominiran</b><br>
+        Geschäftsführer | Starlight Visual Studio<br>
+        https://www.starlightvisualstudio.de/
+    </div>
     """
 
     html_body = (

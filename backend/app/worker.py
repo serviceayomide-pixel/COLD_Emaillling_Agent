@@ -118,12 +118,16 @@ async def process_lead(db, lead: CqcLead) -> bool:
         log = CampaignLog(lead_id=lead.id, cqc_location_id=lead.cqc_location_id, event_type=f"sent_{step_key}")
         db.add(log)
         
-        # Schedule next email (2-step sequence: Email 1 -> Email 2 after 3 days)
+        # Schedule next email (4-step sequence: Email 1 -> 2 -> 3 -> 4)
         now_date = datetime.now(timezone.utc)
         if lead.sequence_step == 1:
-            lead.next_email_date = now_date + timedelta(days=3) # Follow up after 3 days
+            lead.next_email_date = now_date + timedelta(days=3) # Email 2 after 3 days
+        elif lead.sequence_step == 2:
+            lead.next_email_date = now_date + timedelta(days=4) # Email 3 after 4 more days (Day 7)
+        elif lead.sequence_step == 3:
+            lead.next_email_date = now_date + timedelta(days=7) # Email 4 after 7 more days (Day 14)
         else:
-            # Reached the end of the 2-step German Industrial sequence
+            # Reached the end of the 4-step sequence
             lead.next_email_date = None
             lead.campaign_status = 'finished'
             

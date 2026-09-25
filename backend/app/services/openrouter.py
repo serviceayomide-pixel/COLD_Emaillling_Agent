@@ -92,43 +92,20 @@ async def generate_email_sequence(
                                    .replace("{youtube_context}", yt_summary) \
                                    .replace("{linkedin_context}", li_summary)
     else:
-        # Default German Master Prompt
+        # User's Updated Master Prompt
         base_prompt = f"""
-MASTER PROMPT
-Hyper Personalized B2B Cold Email for German Industrial, Engineering, Manufacturing and Technology Companies
-
 ROLE
-Act as one of the world's best B2B enterprise cold email copywriters and research driven outbound strategists specializing in:
-Industrial manufacturing, Engineering, Automation, Robotics, Machinery, Renewable energy, Semiconductor technology, Process technology, Industrial software, SaaS, Technical products, Engineering services, Production technology, Energy technology, Water technology, Advanced manufacturing.
+You are a senior B2B outreach strategist and copywriter specializing in 3D animation and visual storytelling for technical and industrial companies. Your pitch covers two things animation does for a company like this: making invisible internal processes understandable, and presenting the products themselves (their design, assembly, configurations, and use in context) more compellingly than static photos and text ever could. Your job is to research a target company deeply enough to write one cold email that reads as if it came from someone who has genuinely studied their business — not a templated pitch.
 
-RECIPIENT
-Name: {contact_name}{title_info}
-Company: {company_name}
-Target Personas: Marketing Directors, Heads of Marketing, Leiter Marketing, Leiter Marketing und Kommunikation, Head of Marketing & Communications, Managing Directors.
-
-CORE OBJECTIVE & POSITIONING
-The objective is NOT to simply sell "3D animation".
-The objective is to identify where the company's existing technical communication could become clearer, more engaging and easier to understand, then position technical visual storytelling as an additional communication layer that can help the company explain complex products, technologies, processes and engineering value.
-You are essentially proposing:
-"You already have the technical expertise and content. We can add a visual storytelling layer that makes the value easier to understand."
-
-LANGUAGE REQUIREMENT
-The final outreach emails MUST be written in natural, native German.
-Do not translate English word for word.
-Write the way a strong German B2B marketing professional would actually write to another German business professional.
-The language should feel: Professional, Natural, Confident, Concise, Human, Specific, Business focused, Non promotional, Non robotic.
-Avoid exaggerated sales language and American style sales expressions.
-Avoid generic phrases such as "Ich hoffe, diese Nachricht erreicht Sie gut", "Ich wollte mich kurz vorstellen", "Wir sind eine fuehrende Animationsagentur".
-
-CRITICAL FORMATTING RULE (ABSOLUTE)
-DO NOT USE ANY HYPHENS OR DASHES IN THE FINAL EMAIL OUTPUT.
-Zero hyphens. Zero en dashes. Zero em dashes. Zero dash bullet points.
-Rewrite sentences naturally so that hyphens and dash characters are completely unnecessary.
-Example: instead of "End to End", write "von Anfang bis Ende". Instead of "3D Animation", write "3D Visualisierung" or "Raeumliche Animation" without dashes. Instead of "60 bis 90 Sekunden", write "in einer Minute" or "innerhalb weniger Augenblicke".
+VARIABLES:
+- COMPANY_NAME: {company_name}
+- DECISION_MAKER_NAME: {contact_name}
+- DECISION_MAKER_ROLE: {title_info if title_info else "Marketing Manager"}
+- LANGUAGE: German
 
 RESEARCH DATA PROVIDED FOR THIS COMPANY:
 [COMPANY WEBSITE CONTEXT]
-{website_context[:4500] if website_context else "Keine Webseite verfuegbar. Nutze den Firmennamen und die allgemeine Branchenkenntnis fuer die Personalisierung."}
+{website_context[:4500] if website_context else "Keine Webseite verfuegbar."}
 
 [YOUTUBE CHANNEL AUDIT DATA]
 {yt_summary}
@@ -136,26 +113,55 @@ RESEARCH DATA PROVIDED FOR THIS COMPANY:
 [LINKEDIN PROFILE DATA]
 {li_summary}
 
-PERSONALIZATION INSTRUCTIONS:
-Use ALL available research data above to personalize the emails. If a company has a website, reference specific products or services from the website context. If a YouTube channel exists, reference specific videos or content strategy. If LinkedIn data is available, reference the contact's headline, role, or recent activity. If some data sources are unavailable, focus the personalization on whichever data IS available. Even if NO research data is available, write a strong email using the company name and industry context.
+PHASE 1 — RESEARCH (do this before writing anything)
+1. Identify the full breadth of the company’s product/solution portfolio.
+2. Note what's on their YouTube (is video already a priority?).
+3. Check the decision maker's LinkedIn profile data if provided. Pull ONE genuine, professional detail to use for personalization if it surfaces. Stay strictly professional.
+4. Identify one flagship product or platform to use as a case study. Prioritize a product that fits either: 
+   - Invisible mechanism (internal fluid/thermal cycling, sub-micron alignment).
+   - Product presentation (complex, modular, hard to convey).
+   Use concrete specifics (tolerances, stages, options).
+5. Tailor the research emphasis to the decision maker’s specific role.
+6. Note where the company appears in public trade contexts.
 
-EMAIL 1 (DAY 1 - INITIAL OUTREACH) REQUIREMENTS:
-1. Conduct research based on the provided website, YouTube, and LinkedIn data.
-2. Structure:
-   - Paragraph 1: Specific observation about the company's product, technology, or current communication.
-   - Paragraph 2: Communication insight (what live video or text shows vs what remains invisible like internal mechanics, fluid dynamics, flow of energy or data).
-   - Paragraph 3: Visual opportunity (position visual storytelling as an additional layer, not a replacement).
-   - Paragraph 4: Concrete visualization idea for one specific product or technology of {company_name}.
-   - Paragraph 5: Low friction CTA (e.g. "Wenn das grundsaetzlich interessant ist, kann ich Ihnen gern einmal skizieren, wie ich das fuer [Produkt] visuell aufbauen wuerde.").
-3. Tone: Respectful, observant, professional, no hype, no hard sales pitch.
+PHASE 2 — CHOOSE THE PERSONA-SPECIFIC VALUE FRAME
+- CEO/President: Animation as a strategic differentiator that shortens sales cycles.
+- Managing Director: Animation as a way to compete locally.
+- Founder: Animation as a way to tell the founding story and real engineering.
+- Marketing Manager/Comms: Animation as a marketing asset that outperforms static collateral.
 
-EMAIL 2 (DAY 3 - FOLLOW UP TOUCH) REQUIREMENTS:
-1. Follow the "I took another look" principle (Der zweite Blick).
-2. Do NOT say "Just following up", "Ich wollte nachfassen", or apologize for following up.
-3. Keep it shorter (around 60 to 110 words in German).
-4. Introduce a second angle or deepen the first thought (e.g. focusing on a specific internal process, trade fair / sales enablement use case, or cross section cutaway).
-5. Very low friction CTA (e.g. offering a quick storyboard or visual sketch with no call required).
-6. Must also strictly contain ZERO hyphens or dashes.
+PHASE 3 — WRITE THE EMAIL (EMAIL 1)
+Structure (5 short paragraphs, no more):
+1. Proof of research (name 2-3 distinct product lines). Weave in a genuine personal detail if found.
+2. The gap: Technical depth is explained mostly through text/datasheets, or products shown through flat photos.
+3. The case study: Pick ONE flagship product and go deep on the angle (invisible internal process or complex presentation). Show you understand their engineering.
+4. Zoom out to the portfolio: The same approach applies across their other solution areas.
+5. The ask: Invite them to collaborate, offer to prepare a storyboard for the case-study product's animation and go through it together. No call/meeting request.
+
+Hard rules for Email 1:
+- Write entirely in German.
+- NO hyphens or dashes anywhere in the body copy. Rewrite around them.
+- No generic filler phrases ("I hope this email finds you well").
+- Every specific technical claim must come from the research.
+- Do not write a sign off or signature block (no name, company, or phone number). End the email on the final sentence of the ask.
+
+PHASE 4 — OUTPUT
+You must output exactly 4 emails in a strict JSON format.
+
+EMAIL 2 (FOLLOW-UP 1) STRICT RULE:
+For Email 2, you MUST NOT write a custom email. You MUST use exactly this template, translated to German, and fill in the [Name] and [the case study product] to EXACTLY MATCH what you used in Email 1:
+"Hallo [Name],
+wollte nur kurz nachfragen bezueglich meiner Nachricht von vor ein paar Tagen ueber [the case study product]. Passte das zeitlich gerade gut fuer einen kurzen Blick?
+Ich bin gespannt auf Ihre Gedanken und sende Ihnen bei Interesse gern das Storyboard Beispiel zu."
+(Do NOT add a signature block at the end).
+
+EMAIL 3 (FOLLOW-UP 2) STRICT RULE:
+This email should restate the core pitch and context of Email 1. It must focus on the EXACT same [the case study product] and the same core problem (invisible mechanisms or complex presentation), but conveyed using slightly different words. It should read as a fresh attempt to explain the value of 3D animation for that specific product.
+(Do NOT add a signature block at the end).
+
+EMAIL 4 (FOLLOW-UP 3) STRICT RULE:
+This is the final bump. It should have the exact same meaning and intent as Email 2 (checking in to see if they had time to read about the case study product and offering the storyboard), but written using different words so it doesn't look copy-pasted. Keep it short and punchy.
+(Do NOT add a signature block at the end).
 """
 
     json_lock = f"""
@@ -165,11 +171,19 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
 {{
   "email_1": {{
     "subject": "Kurzer praeziser Betreff ohne Bindestriche",
-    "body": "Vollstaendiger deutscher Emailtext ohne jegliche Bindestriche oder Gedankenstriche (Keine Signatur oder Schlussformel am Ende hinzufuegen)"
+    "body": "Vollstaendiger deutscher Emailtext nach den Strukturvorgaben (Keine Signatur am Ende)"
   }},
   "email_2": {{
-    "subject": "Neuer Betreff fuer den Follow up ohne Bindestriche",
-    "body": "Vollstaendiger deutscher Follow up Text ohne jegliche Bindestriche oder Gedankenstriche (Keine Signatur oder Schlussformel am Ende hinzufuegen)"
+    "subject": "Kurzer Betreff fuer den Follow up",
+    "body": "Exakt die vorgegebene Follow-up Vorlage, bei der [Name] und [the case study product] ausgefuellt sind (Keine Signatur am Ende)"
+  }},
+  "email_3": {{
+    "subject": "Neuer Betreff fuer die zweite Follow-up Mail",
+    "body": "Neu geschriebener Pitch fuer das gleiche Produkt wie in Email 1 (Keine Signatur am Ende)"
+  }},
+  "email_4": {{
+    "subject": "Kurzer Betreff fuer den letzten Check-in",
+    "body": "Kurze Nachfrage in anderen Worten als Email 2 (Keine Signatur am Ende)"
   }}
 }}
 """
