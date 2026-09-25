@@ -16,7 +16,7 @@ TRANSPARENT_PIXEL = bytes([
 
 
 @router.get("/tracking/open/{lead_id}")
-async def track_open(lead_id: str):
+async def track_open(lead_id: int):
     """
     When a prospect opens the email, their email client loads this invisible image.
     We log the 'email_opened' event and return a 1x1 transparent pixel.
