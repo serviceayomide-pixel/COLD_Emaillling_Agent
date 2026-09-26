@@ -61,7 +61,7 @@ async def upload_csv(
         if not company_name:
             continue
             
-        contact_email = normalized_row.get('contact_email', normalized_row.get('email', ''))
+        contact_email = normalized_row.get('contact_email', normalized_row.get('email', normalized_row.get('mail', '')))
         
         # Identify lead by name for warnings
         contact_fname = normalized_row.get('contact_first_name', normalized_row.get('first_name', ''))
@@ -115,7 +115,7 @@ async def upload_csv(
     for row_data in valid_leads:
         normalized_row, company_name, contact_email, contact_fname, contact_lname = row_data
         
-        website_url = normalized_row.get('website_url', normalized_row.get('website', normalized_row.get('url', None)))
+        website_url = normalized_row.get('website_url', normalized_row.get('website', normalized_row.get('url', normalized_row.get('company_website', None))))
         if website_url:
             website_url = str(website_url).replace('http://', '').replace('https://', '').strip('/')
             
@@ -123,7 +123,7 @@ async def upload_csv(
         if not cqc_id:
             cqc_id = uuid.uuid4().hex
             
-        linkedin_url = normalized_row.get('linkedin_url', normalized_row.get('linkedin', normalized_row.get('linkedin_profile', None)))
+        linkedin_url = normalized_row.get('linkedin_url', normalized_row.get('linkedin', normalized_row.get('linkedin_profile', normalized_row.get('company_linkedin', None))))
         if linkedin_url:
             linkedin_url = str(linkedin_url).strip()
             if linkedin_url and linkedin_url.lower() in ('', 'nan', 'none', 'n/a'):
