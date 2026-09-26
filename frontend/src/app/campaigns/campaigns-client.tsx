@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap, UploadCloud, Edit3, Trash2 } from "lucide-react"
+import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap, UploadCloud, Edit3, Trash2, Eye, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
 import { CsvUploadModal } from "@/components/csv-upload-modal"
@@ -34,6 +34,24 @@ export default function CampaignsClient({
   const [updatingId, setUpdatingId] = useState<number | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [editingPromptFor, setEditingPromptFor] = useState<{ id: number, name: string, currentPrompt: string | null } | null>(null)
+  const [openedLeads, setOpenedLeads] = useState<any[]>([])
+  const [openedForCampaign, setOpenedForCampaign] = useState<number | null>(null)
+  const [loadingOpened, setLoadingOpened] = useState(false)
+
+  const fetchOpenedLeads = async (monthNumber: number) => {
+    setLoadingOpened(true)
+    setOpenedForCampaign(monthNumber)
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://backend-production-cba9a.up.railway.app"
+      const res = await fetch(`${backendUrl}/api/campaigns/${monthNumber}/opened`)
+      const data = await res.json()
+      setOpenedLeads(data)
+    } catch (err) {
+      console.error("Failed to fetch opened leads:", err)
+      setOpenedLeads([])
+    }
+    setLoadingOpened(false)
+  }
   
   // Local state so pause/resume is always instant and correct
   const [campaigns, setCampaigns] = useState<any[]>(initialCampaigns ?? [])
@@ -245,9 +263,12 @@ export default function CampaignsClient({
                       <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Sent</p>
                       <p className="text-xl font-semibold text-white">{campaign.sent}</p>
                     </div>
-                    <div>
-                      <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Opened</p>
-                      <p className="text-xl font-semibold text-white">{campaign.opened}</p>
+                    <div 
+                      className="cursor-pointer hover:bg-white/[0.04] rounded-lg p-2 -m-2 transition-colors"
+                      onClick={() => fetchOpenedLeads(campaign.id)}
+                    >
+                      <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider flex items-center gap-1">Opened <Eye className="h-3 w-3" /></p>
+                      <p className="text-xl font-semibold text-cyan-400 underline decoration-cyan-400/30">{campaign.opened}</p>
                     </div>
                     <div>
                       <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Replied</p>
@@ -284,6 +305,73 @@ export default function CampaignsClient({
           currentPrompt={editingPromptFor.currentPrompt}
           onSave={() => router.refresh()}
         />
+      )}
+
+      {/* Opened Leads Modal */}
+      {openedForCampaign !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setOpenedForCampaign(null)}>
+          <div className="bg-[#0d1117] border border-white/[0.08] rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/10">
+                  <Eye className="h-4 w-4 text-cyan-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">People Who Opened</h3>
+                  <p className="text-xs text-slate-500">{openedLeads.length} lead{openedLeads.length !== 1 ? 's' : ''} opened your email</p>
+                </div>
+              </div>
+              <button onClick={() => setOpenedForCampaign(null)} className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors">
+                <X className="h-5 w-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto max-h-[60vh] p-6">
+              {loadingOpened ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+                </div>
+              ) : openedLeads.length === 0 ? (
+                <div className="text-center py-12">
+                  <Eye className="h-10 w-10 text-slate-700 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500">No opens recorded yet for this campaign.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {openedLeads.map((lead, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400 font-semibold text-sm">
+                          {lead.name?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{lead.name}</p>
+                          <p className="text-xs text-slate-400">{lead.email}</p>
+                          <p className="text-[11px] text-slate-500">{lead.company}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[11px] text-slate-500">
+                          {lead.opened_at ? new Date(lead.opened_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                        </p>
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium ${
+                          lead.campaign_status === 'interested' ? 'bg-emerald-500/10 text-emerald-400' :
+                          lead.campaign_status === 'not interested' ? 'bg-red-500/10 text-red-400' :
+                          lead.campaign_status === 'active' ? 'bg-blue-500/10 text-blue-400' :
+                          'bg-slate-500/10 text-slate-400'
+                        }`}>
+                          {lead.campaign_status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </DashboardLayout>
   )

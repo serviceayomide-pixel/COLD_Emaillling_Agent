@@ -167,6 +167,30 @@ def get_campaign_months(db: Session = Depends(get_db)):
         })
     return result
 
+@router.get("/campaigns/{month_number}/opened")
+def get_campaign_opened_leads(month_number: int, db: Session = Depends(get_db)):
+    """Returns the actual leads (name, email, company) who opened emails for a specific campaign month."""
+    results = db.query(CampaignLog, CqcLead)\
+                .join(CqcLead, CampaignLog.cqc_location_id == CqcLead.cqc_location_id)\
+                .filter(
+                    CqcLead.campaign_month == month_number,
+                    CqcLead.emailed_at.isnot(None),
+                    CampaignLog.event_type == 'email_opened',
+                    CampaignLog.created_at >= CqcLead.emailed_at
+                )\
+                .order_by(CampaignLog.created_at.desc()).all()
+    
+    return [
+        {
+            "name": f"{lead.contact_first_name} {lead.contact_last_name}".strip() or "Unknown",
+            "email": lead.contact_email,
+            "company": lead.company_name or "Unknown",
+            "opened_at": log.created_at.isoformat() if log.created_at else None,
+            "campaign_status": lead.campaign_status,
+        }
+        for log, lead in results
+    ]
+
 from pydantic import BaseModel
 from fastapi import HTTPException
 
