@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap, UploadCloud, Edit3, Trash2, Eye, X } from "lucide-react"
+import { Send, Play, Pause, BarChart3, Mail, Clock, Users, Zap, UploadCloud, Edit3, Trash2, Eye, X, Reply } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
 import { CsvUploadModal } from "@/components/csv-upload-modal"
@@ -51,6 +51,25 @@ export default function CampaignsClient({
       setOpenedLeads([])
     }
     setLoadingOpened(false)
+  }
+
+  const [repliedLeads, setRepliedLeads] = useState<any[]>([])
+  const [repliedForCampaign, setRepliedForCampaign] = useState<number | null>(null)
+  const [loadingReplied, setLoadingReplied] = useState(false)
+
+  const fetchRepliedLeads = async (monthNumber: number) => {
+    setLoadingReplied(true)
+    setRepliedForCampaign(monthNumber)
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://backend-production-cba9a.up.railway.app"
+      const res = await fetch(`${backendUrl}/api/campaigns/${monthNumber}/replied`)
+      const data = await res.json()
+      setRepliedLeads(data)
+    } catch (err) {
+      console.error("Failed to fetch replied leads:", err)
+      setRepliedLeads([])
+    }
+    setLoadingReplied(false)
   }
   
   // Local state so pause/resume is always instant and correct
@@ -270,9 +289,12 @@ export default function CampaignsClient({
                       <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider flex items-center gap-1">Opened <Eye className="h-3 w-3" /></p>
                       <p className="text-xl font-semibold text-cyan-400 underline decoration-cyan-400/30">{campaign.opened}</p>
                     </div>
-                    <div>
-                      <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Replied</p>
-                      <p className="text-xl font-semibold text-white">{campaign.replied}</p>
+                    <div 
+                      className="cursor-pointer hover:bg-white/[0.04] rounded-lg p-2 -m-2 transition-colors"
+                      onClick={() => fetchRepliedLeads(campaign.id)}
+                    >
+                      <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider flex items-center gap-1">Replied <Reply className="h-3 w-3" /></p>
+                      <p className="text-xl font-semibold text-violet-400 underline decoration-violet-400/30">{campaign.replied}</p>
                     </div>
                   </div>
                 </div>
@@ -361,6 +383,77 @@ export default function CampaignsClient({
                           lead.campaign_status === 'not interested' ? 'bg-red-500/10 text-red-400' :
                           lead.campaign_status === 'active' ? 'bg-blue-500/10 text-blue-400' :
                           'bg-slate-500/10 text-slate-400'
+                        }`}>
+                          {lead.campaign_status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Replied Leads Modal */}
+      {repliedForCampaign !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setRepliedForCampaign(null)}>
+          <div className="bg-[#0d1117] border border-white/[0.08] rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 border border-violet-500/10">
+                  <Reply className="h-4 w-4 text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">People Who Replied</h3>
+                  <p className="text-xs text-slate-500">{repliedLeads.length} lead{repliedLeads.length !== 1 ? 's' : ''} replied to your email</p>
+                </div>
+              </div>
+              <button onClick={() => setRepliedForCampaign(null)} className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors">
+                <X className="h-5 w-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto max-h-[60vh] p-6">
+              {loadingReplied ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
+                </div>
+              ) : repliedLeads.length === 0 ? (
+                <div className="text-center py-12">
+                  <Reply className="h-10 w-10 text-slate-700 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500">No replies recorded yet for this campaign.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {repliedLeads.map((lead, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className={`flex items-center justify-center h-10 w-10 rounded-full font-semibold text-sm ${
+                          lead.campaign_status === 'interested' ? 'bg-gradient-to-br from-emerald-500/20 to-green-500/20 text-emerald-400' :
+                          lead.campaign_status === 'not interested' ? 'bg-gradient-to-br from-red-500/20 to-rose-500/20 text-red-400' :
+                          lead.campaign_status === 'out of office' ? 'bg-gradient-to-br from-amber-500/20 to-yellow-500/20 text-amber-400' :
+                          lead.campaign_status === 'bounced' ? 'bg-gradient-to-br from-slate-500/20 to-gray-500/20 text-slate-400' :
+                          'bg-gradient-to-br from-violet-500/20 to-purple-500/20 text-violet-400'
+                        }`}>
+                          {lead.name?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{lead.name}</p>
+                          <p className="text-xs text-slate-400">{lead.email}</p>
+                          <p className="text-[11px] text-slate-500">{lead.company}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-semibold ${
+                          lead.campaign_status === 'interested' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                          lead.campaign_status === 'not interested' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                          lead.campaign_status === 'out of office' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                          lead.campaign_status === 'bounced' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' :
+                          'bg-violet-500/10 text-violet-400 border border-violet-500/20'
                         }`}>
                           {lead.campaign_status}
                         </span>

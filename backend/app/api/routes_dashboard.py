@@ -191,6 +191,27 @@ def get_campaign_opened_leads(month_number: int, db: Session = Depends(get_db)):
         for log, lead in results
     ]
 
+@router.get("/campaigns/{month_number}/replied")
+def get_campaign_replied_leads(month_number: int, db: Session = Depends(get_db)):
+    """Returns the actual leads (name, email, company, status) who replied for a specific campaign month."""
+    results = db.query(CqcLead)\
+                .filter(
+                    CqcLead.campaign_month == month_number,
+                    CqcLead.campaign_status.notin_(['not_started', 'active'])
+                )\
+                .order_by(CqcLead.emailed_at.desc()).all()
+    
+    return [
+        {
+            "name": f"{lead.contact_first_name} {lead.contact_last_name}".strip() or "Unknown",
+            "email": lead.contact_email,
+            "company": lead.company_name or "Unknown",
+            "campaign_status": lead.campaign_status,
+            "emailed_at": lead.emailed_at.isoformat() if lead.emailed_at else None,
+        }
+        for lead in results
+    ]
+
 from pydantic import BaseModel
 from fastapi import HTTPException
 
