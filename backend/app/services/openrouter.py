@@ -136,9 +136,13 @@ Structure (5 short paragraphs, no more):
 2. The gap: Technical depth is explained mostly through text/datasheets, or products shown through flat photos.
 3. The case study: Pick ONE flagship product and go deep on the angle (invisible internal process or complex presentation). Show you understand their engineering.
 4. Zoom out to the portfolio: The same approach applies across their other solution areas.
-5. The ask: Invite them to collaborate, offer to prepare a storyboard for the case-study product's animation and go through it together. No call/meeting request.
+5. The ask: Offer to prepare a storyboard for the case-study product's animation. End the email with EXACTLY one of these two concepts translated naturally into German:
+   - "I'll be looking forward to your thoughts" (e.g., "Ich bin gespannt auf Ihre Gedanken.")
+   - "May I send it over to you so we can review it together?" (e.g., "Darf ich Ihnen das einmal zusenden, damit wir es gemeinsam durchsehen koennen?")
+   Do NOT use phrases like "a brief reply is all it takes". Just end on the question or the statement.
 
 Hard rules for Email 1:
+- MUST start with a personalized greeting using the recipient's name (e.g., "Hallo [Name],").
 - Write entirely in German.
 - NO hyphens or dashes anywhere in the body copy. Rewrite around them.
 - No generic filler phrases ("I hope this email finds you well").
