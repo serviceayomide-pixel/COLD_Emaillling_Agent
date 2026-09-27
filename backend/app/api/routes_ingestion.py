@@ -149,32 +149,36 @@ async def upload_csv(
         })
 
     if leads_to_insert:
-        # Perform Bulk Upsert
-        stmt = pg_insert(CqcLead).values(leads_to_insert)
-        
-        # On conflict (duplicate CQC ID), update the record to use the new campaign and updated contact info
-        update_dict = {
-            'contact_email': stmt.excluded.contact_email,
-            'contact_first_name': stmt.excluded.contact_first_name,
-            'contact_last_name': stmt.excluded.contact_last_name,
-            'campaign_month': stmt.excluded.campaign_month,
-            'campaign_status': 'not_started',
-            'enrichment_status': 'enriched',
-            'emailed_at': None,
-            'next_email_date': None,
-            'sequence_step': 0,
-            'full_email_sequence': None,
-            'ai_email_subject': None,
-            'ai_email_body': None
-        }
-        
-        stmt = stmt.on_conflict_do_update(
-            index_elements=['cqc_location_id', 'campaign_month'],
-            set_=update_dict
-        )
-        
-        db.execute(stmt)
-        db.commit()
+        batch_size = 500
+        for i in range(0, len(leads_to_insert), batch_size):
+            batch = leads_to_insert[i:i + batch_size]
+            # Perform Bulk Upsert in batches
+            stmt = pg_insert(CqcLead).values(batch)
+            
+            # On conflict (duplicate CQC ID), update the record to use the new campaign and updated contact info
+            update_dict = {
+                'contact_email': stmt.excluded.contact_email,
+                'contact_first_name': stmt.excluded.contact_first_name,
+                'contact_last_name': stmt.excluded.contact_last_name,
+                'campaign_month': stmt.excluded.campaign_month,
+                'campaign_status': 'not_started',
+                'enrichment_status': 'enriched',
+                'emailed_at': None,
+                'next_email_date': None,
+                'sequence_step': 0,
+                'full_email_sequence': None,
+                'ai_email_subject': None,
+                'ai_email_body': None
+            }
+            
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['cqc_location_id', 'campaign_month'],
+                set_=update_dict
+            )
+            
+            db.execute(stmt)
+            db.commit()
+            
         inserted_count = len(leads_to_insert)
     
     duplicate_count = 0 # No longer skipping duplicates, we seamlessly update them!

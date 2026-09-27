@@ -7,11 +7,21 @@ from app.core.config import settings
 # For development/mock mode without credentials, we can fallback to SQLite
 SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL if settings.DATABASE_URL and settings.DATABASE_URL.startswith("postgresql") else "sqlite:///./mock_database.db"
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, 
-    # check_same_thread is needed only for SQLite
-    connect_args={"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
-)
+connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
+
+if SQLALCHEMY_DATABASE_URL.startswith("postgresql"):
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        pool_pre_ping=True,      # Check connection health before using
+        pool_size=10,            # Keep up to 10 connections alive
+        max_overflow=20,         # Allow up to 20 extra if traffic spikes
+        connect_args=connect_args
+    )
+else:
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL, 
+        connect_args=connect_args
+    )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

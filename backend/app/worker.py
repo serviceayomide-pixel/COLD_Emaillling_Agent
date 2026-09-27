@@ -20,73 +20,67 @@ async def process_lead(db, lead: CqcLead) -> bool:
     # Generate Sequence if this is the first time
     if lead.sequence_step == 0 or not lead.full_email_sequence:
         
-        # ── ENRICHMENT STEP 1: Website scraping via Firecrawl (optional) ──
-        context = lead.scraped_content
-        if not context and lead.website_url:
-            print(f"Scraping website for {lead.company_name} via Firecrawl...")
-            domain = lead.website_url
-            if not domain.startswith("http"):
-                url = f"https://{domain}"
-            else:
-                url = domain
-            context = await firecrawl.scrape_company_context(url)
-            if context:
-                lead.scraped_content = context
-        
-        if not context:
-            # No website available or scrape failed — continue without it
-            context = None
-            print(f"No website data available for {lead.company_name}. Will use other data sources.")
-        
-        # ── ENRICHMENT STEP 2: YouTube audit (optional) ──
-        youtube_data = None
-        if lead.company_name:
-            print(f"Auditing YouTube channel for {lead.company_name}...")
-            youtube_data = await youtube_service.audit_company_youtube(lead.company_name)
-            if youtube_data and youtube_data.get("error"):
-                print(f"YouTube audit returned no data: {youtube_data.get('error')}")
-                youtube_data = None
-
-        # ── ENRICHMENT STEP 3: LinkedIn profile via Apify (optional) ──
-        linkedin_data = None
-        if lead.linkedin_url:
-            print(f"Scraping LinkedIn profile for {lead.contact_first_name} {lead.contact_last_name}...")
-            linkedin_data = await scrape_linkedin_profile(lead.linkedin_url)
-            if linkedin_data:
-                print(f"LinkedIn data retrieved: {linkedin_data.get('headline', 'N/A')}")
-            else:
-                print(f"LinkedIn scrape returned no data for {lead.linkedin_url}")
-        else:
-            print(f"No LinkedIn URL for {lead.contact_first_name}. Skipping LinkedIn enrichment.")
-
-        # ── Get the active campaign's custom prompt ──
-        active_month = db.query(CampaignMonth).filter(CampaignMonth.status == "active").first()
-        if not active_month:
-            print(f"[{datetime.now()}] [Worker] No active CampaignMonth found. Cannot process lead ID {lead.id}.")
-            return False
+        try:
+            # ── ENRICHMENT STEP 1: Website scraping via Firecrawl (optional) ──
+            context = lead.scraped_content
+            if not context and lead.website_url:
+                print(f"Scraping website for {lead.company_name} via Firecrawl...")
+                domain = lead.website_url
+                if not domain.startswith("http"):
+                    url = f"https://{domain}"
+                else:
+                    url = domain
+                context = await firecrawl.scrape_company_context(url)
+                if context:
+                    lead.scraped_content = context
             
-        custom_prompt = active_month.custom_prompt
+            if not context:
+                context = None
+            
+            # ── ENRICHMENT STEP 2: YouTube audit (optional) ──
+            youtube_data = None
+            if lead.company_name:
+                print(f"Auditing YouTube channel for {lead.company_name}...")
+                youtube_data = await youtube_service.audit_company_youtube(lead.company_name)
+                if youtube_data and youtube_data.get("error"):
+                    youtube_data = None
+
+            # ── ENRICHMENT STEP 3: LinkedIn profile via Apify (optional) ──
+            linkedin_data = None
+            if lead.linkedin_url:
+                print(f"Scraping LinkedIn profile for {lead.contact_first_name} {lead.contact_last_name}...")
+                linkedin_data = await scrape_linkedin_profile(lead.linkedin_url)
                 
-        # ── Generate the email sequence using all available data ──
-        print(f"Generating hyper-personalized German visual storytelling sequence for {lead.contact_first_name}...")
-        print(f"  Data sources: Website={'Yes' if context else 'No'} | YouTube={'Yes' if youtube_data else 'No'} | LinkedIn={'Yes' if linkedin_data else 'No'}")
-        
-        email_sequence = await openrouter.generate_email_sequence(
-            contact_name=lead.contact_first_name or "Guten Tag",
-            company_name=lead.company_name,
-            website_context=context or "",
-            youtube_context=youtube_data,
-            linkedin_context=linkedin_data,
-            job_title=getattr(lead, "service_type", None) or "Marketing",
-            custom_prompt=custom_prompt
-        )
-        
-        if not email_sequence:
-            print(f"Failed to generate sequence for {lead.contact_email}")
-            return False
+            # ── Get the active campaign's custom prompt ──
+            active_month = db.query(CampaignMonth).filter(CampaignMonth.status == "active").first()
+            if not active_month:
+                print(f"[{datetime.now()}] [Worker] No active CampaignMonth found. Cannot process lead ID {lead.id}.")
+                return False
+                
+            custom_prompt = active_month.custom_prompt
+                    
+            # ── Generate the email sequence using all available data ──
+            email_sequence = await openrouter.generate_email_sequence(
+                contact_name=lead.contact_first_name or "Guten Tag",
+                company_name=lead.company_name,
+                website_context=context or "",
+                youtube_context=youtube_data,
+                linkedin_context=linkedin_data,
+                job_title=getattr(lead, "service_type", None) or "Marketing",
+                custom_prompt=custom_prompt
+            )
             
-        lead.full_email_sequence = email_sequence
-        db.commit()
+            if not email_sequence:
+                print(f"Failed to generate sequence for {lead.contact_email}")
+                return False
+                
+            lead.full_email_sequence = email_sequence
+            db.commit()
+            
+        except Exception as e:
+            print(f"Error during enrichment/generation for {lead.contact_email}: {str(e)}")
+            # Skip this lead for now, we'll try again next time
+            return False
 
     # Determine which email to send
     sequence = lead.full_email_sequence
@@ -261,10 +255,10 @@ async def run_pipeline():
                         CqcLead.next_email_date <= now_date
                     )
                 )
-            ).with_for_update(skip_locked=True).limit(1).all()
+            ).with_for_update(skip_locked=True).limit(2).all()
             
             if pending_leads:
-                print(f"[Campaign {active_month_number}] Found lead due for email. Starting dispatch...")
+                print(f"[Campaign {active_month_number}] Found {len(pending_leads)} lead(s) due for email. Starting dispatch...")
                 for lead in pending_leads:
                     await process_lead(db, lead)
             else:
