@@ -81,6 +81,16 @@ async def generate_email_sequence(
             li_summary = "\n".join(parts)
 
     title_info = f" ({job_title})" if job_title else ""
+    
+    # Conditional greeting rule based on whether we have a name
+    has_name = bool(contact_name and contact_name.strip())
+    
+    if has_name:
+        greeting_instruction = f'- MUST start with a personalized greeting using the recipient\'s name (e.g., "Hallo {contact_name},").'
+        email2_greeting = f"Hallo {contact_name},"
+    else:
+        greeting_instruction = '- MUST start with a natural, polite general business greeting since the recipient\'s name is unknown (e.g., "Guten Tag," or "Hallo,"). DO NOT invent a name or use placeholders.'
+        email2_greeting = "Guten Tag,"
 
     # Base prompt payload creation
     if custom_prompt and custom_prompt.strip():
@@ -99,7 +109,7 @@ You are a senior B2B outreach strategist and copywriter specializing in 3D anima
 
 VARIABLES:
 - COMPANY_NAME: {company_name}
-- DECISION_MAKER_NAME: {contact_name}
+- DECISION_MAKER_NAME: {contact_name if has_name else "Unknown (Address them generally)"}
 - DECISION_MAKER_ROLE: {title_info if title_info else "Marketing Manager"}
 - LANGUAGE: German
 
@@ -142,7 +152,7 @@ Structure (5 short paragraphs, no more):
    Do NOT use phrases like "a brief reply is all it takes". Just end on the question or the statement.
 
 Hard rules for Email 1:
-- MUST start with a personalized greeting using the recipient's name (e.g., "Hallo [Name],").
+{greeting_instruction}
 - Write entirely in German.
 - NO hyphens or dashes anywhere in the body copy. Rewrite around them.
 - No generic filler phrases ("I hope this email finds you well").
@@ -153,8 +163,8 @@ PHASE 4 — OUTPUT
 You must output exactly 4 emails in a strict JSON format.
 
 EMAIL 2 (FOLLOW-UP 1) STRICT RULE:
-For Email 2, you MUST NOT write a custom email. You MUST use exactly this template, translated to German, and fill in the [Name] and [the case study product] to EXACTLY MATCH what you used in Email 1:
-"Hallo [Name],
+For Email 2, you MUST NOT write a custom email. You MUST use exactly this template, translated to German, and fill in the exact [the case study product] you used in Email 1:
+"{email2_greeting}
 wollte nur kurz nachfragen bezueglich meiner Nachricht von vor ein paar Tagen ueber [the case study product]. Passte das zeitlich gerade gut fuer einen kurzen Blick?
 Ich bin gespannt auf Ihre Gedanken und sende Ihnen bei Interesse gern das Storyboard Beispiel zu."
 (Do NOT add a signature block at the end).

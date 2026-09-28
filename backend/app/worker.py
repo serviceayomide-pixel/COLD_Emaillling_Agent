@@ -61,7 +61,7 @@ async def process_lead(db, lead: CqcLead) -> bool:
                     
             # ── Generate the email sequence using all available data ──
             email_sequence = await openrouter.generate_email_sequence(
-                contact_name=lead.contact_first_name or "Guten Tag",
+                contact_name=lead.contact_first_name or "",
                 company_name=lead.company_name,
                 website_context=context or "",
                 youtube_context=youtube_data,

@@ -56,16 +56,35 @@ async def upload_csv(
         # Normalize keys for robust matching across different formats
         normalized_row = {str(k).lower().strip().replace(' ', '_'): str(v).strip() for k, v in row.items() if str(k).strip()}
         
-        # Support both 'company name', 'name', and 'company_name'
-        company_name = normalized_row.get('company_name', normalized_row.get('name', ''))
-        if not company_name:
-            continue
-            
         contact_email = normalized_row.get('contact_email', normalized_row.get('email', normalized_row.get('mail', '')))
         
-        # Identify lead by name for warnings
+        # Extract name
         contact_fname = normalized_row.get('contact_first_name', normalized_row.get('first_name', ''))
         contact_lname = normalized_row.get('contact_last_name', normalized_row.get('last_name', ''))
+        
+        raw_name = normalized_row.get('name', '')
+        if raw_name and not contact_fname:
+            parts = str(raw_name).split(' ', 1)
+            contact_fname = parts[0]
+            contact_lname = parts[1] if len(parts) > 1 else ''
+
+        # Extract company name
+        company_name = normalized_row.get('company_name', normalized_row.get('company', ''))
+        
+        # If company name is missing, try to get it from the website domain or email domain
+        if not company_name:
+            website_url = normalized_row.get('website_url', normalized_row.get('website', normalized_row.get('url', normalized_row.get('company_website', ''))))
+            if website_url:
+                company_name = str(website_url).replace('http://', '').replace('https://', '').replace('www.', '').split('/')[0]
+            elif contact_email and '@' in contact_email:
+                domain = contact_email.split('@')[1]
+                if domain not in ('gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'gmx.de', 'web.de'):
+                    company_name = domain.split('.')[0].capitalize()
+        
+        # If still no company name, use a fallback
+        if not company_name:
+            company_name = "Ihr Unternehmen"
+
         display_name = f"{contact_fname} {contact_lname}".strip() or company_name
         
         if not contact_email:
