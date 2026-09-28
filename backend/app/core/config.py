@@ -7,6 +7,9 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost:5173",
         "https://frontend-production-cc0b.up.railway.app",
+        "https://app.starlightvisualstudio.com",
+        "https://www.starlightvisualstudio.com",
+        "https://starlightvisualstudio.com"
     ]
     
     # Sender Information
