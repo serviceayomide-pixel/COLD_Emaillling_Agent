@@ -49,11 +49,11 @@ async def generate_email_sequence(
         video_details = []
         for v in videos:
             t = v.get('transcript')
-            transcript_snippet = f"Transcript Auszug: {t[:400]}" if t and t != "No transcript available." else "Kein Transkript verfuegbar"
+            transcript_snippet = f"Transcript Auszug: {t[:200]}" if t and t != "No transcript available." else "Kein Transkript verfuegbar"
             video_details.append(
                 f"- Video Titel: {v.get('title')}\n"
                 f"  Veroeffentlicht: {v.get('published_at')}\n"
-                f"  Beschreibung: {v.get('description', '')[:300]}\n"
+                f"  Beschreibung: {v.get('description', '')[:150]}\n"
                 f"  {transcript_snippet}"
             )
         videos_str = "\n".join(video_details) if video_details else "Keine aktuellen Videos gefunden."
@@ -98,7 +98,7 @@ async def generate_email_sequence(
         base_prompt = custom_prompt.replace("{contact_name}", contact_name) \
                                    .replace("{company_name}", company_name) \
                                    .replace("{job_title}", title_info) \
-                                   .replace("{website_context}", website_context[:4500] if website_context else "Keine Webseite verfuegbar.") \
+                                   .replace("{website_context}", website_context[:2000] if website_context else "Keine Webseite verfuegbar.") \
                                    .replace("{youtube_context}", yt_summary) \
                                    .replace("{linkedin_context}", li_summary)
     else:
@@ -115,7 +115,7 @@ VARIABLES:
 
 RESEARCH DATA PROVIDED FOR THIS COMPANY:
 [COMPANY WEBSITE CONTEXT]
-{website_context[:4500] if website_context else "Keine Webseite verfuegbar."}
+{website_context[:2000] if website_context else "Keine Webseite verfuegbar."}
 
 [YOUTUBE CHANNEL AUDIT DATA]
 {yt_summary}
@@ -204,11 +204,12 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
     prompt = base_prompt + "\n" + json_lock
 
     payload = {
-        "model": "anthropic/claude-sonnet-4.6",
+        "model": "anthropic/claude-3-5-haiku",
         "messages": [
             {"role": "user", "content": prompt}
         ],
-        "temperature": 0.3
+        "temperature": 0.3,
+        "max_tokens": 1500
     }
 
     try:
@@ -241,9 +242,9 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
                 return parsed
             else:
                 logger.error(f"OpenRouter API Error: {response.status_code} - {response.text}")
-                # Fallback to Claude 3.5 Sonnet
+                # Fallback to Claude 3 Haiku if 3.5 Haiku fails
                 fallback_payload = dict(payload)
-                fallback_payload["model"] = "anthropic/claude-3.5-sonnet"
+                fallback_payload["model"] = "anthropic/claude-3-haiku"
                 fb_response = await client.post(url, json=fallback_payload, headers=headers, timeout=90.0)
                 if fb_response.status_code == 200:
                     fb_data = fb_response.json()
