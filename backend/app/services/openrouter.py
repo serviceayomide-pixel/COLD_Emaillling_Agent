@@ -204,7 +204,7 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
     prompt = base_prompt + "\n" + json_lock
 
     payload = {
-        "model": "anthropic/claude-3.5-haiku",
+        "model": "~anthropic/claude-haiku-latest",
         "messages": [
             {"role": "user", "content": prompt}
         ],
@@ -244,7 +244,7 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
                 logger.error(f"OpenRouter API Error: {response.status_code} - {response.text}")
                 # Fallback to Claude 3 Haiku if 3.5 Haiku fails
                 fallback_payload = dict(payload)
-                fallback_payload["model"] = "anthropic/claude-3-haiku"
+                fallback_payload["model"] = "anthropic/claude-haiku-4.5"
                 fb_response = await client.post(url, json=fallback_payload, headers=headers, timeout=90.0)
                 if fb_response.status_code == 200:
                     fb_data = fb_response.json()
