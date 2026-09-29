@@ -204,7 +204,7 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
     prompt = base_prompt + "\n" + json_lock
 
     payload = {
-        "model": "anthropic/claude-3-5-haiku",
+        "model": "anthropic/claude-3.5-haiku",
         "messages": [
             {"role": "user", "content": prompt}
         ],
