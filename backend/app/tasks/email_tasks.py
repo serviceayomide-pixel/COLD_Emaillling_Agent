@@ -135,6 +135,18 @@ async def process_webhook_async(payload: dict):
             if not lead:
                 lead = db.query(CqcLead).filter(CqcLead.contact_email == sender).first()
                 
+            # NEW LOGIC: If this is an orphaned bounce message, try to extract the original email from the body
+            if not lead and ("postmaster" in sender or "mailer-daemon" in sender or "undeliverable" in subject.lower()):
+                import re
+                emails_in_body = re.findall(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', body)
+                if emails_in_body:
+                    for found_email in emails_in_body:
+                        found_email_lower = found_email.lower()
+                        if found_email_lower != email_address_lower:
+                            lead = db.query(CqcLead).filter(CqcLead.contact_email == found_email_lower).first()
+                            if lead:
+                                break
+
             if not lead:
                 return # Not a lead
 
