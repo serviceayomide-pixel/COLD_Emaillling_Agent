@@ -93,14 +93,37 @@ async def generate_email_sequence(
         email2_greeting = "Guten Tag,"
 
     # Base prompt payload creation
+    research_block = f"""
+=== TARGET PROSPECT & RESEARCH DATA ===
+TARGET COMPANY: {company_name}
+DECISION MAKER: {contact_name if has_name else "Unknown (Address them generally)"}{title_info}
+
+[WEBSITE RESEARCH]
+{website_context[:2000] if website_context else "Keine Webseite verfuegbar."}
+
+[YOUTUBE CHANNEL AUDIT & RECENT VIDEOS]
+{yt_summary}
+
+[LINKEDIN PROFILE DATA]
+{li_summary}
+=======================================
+"""
+
     if custom_prompt and custom_prompt.strip():
         # Using the user's custom prompt from the dashboard
-        base_prompt = custom_prompt.replace("{contact_name}", contact_name) \
+        user_prompt = custom_prompt.replace("{contact_name}", contact_name) \
                                    .replace("{company_name}", company_name) \
                                    .replace("{job_title}", title_info) \
                                    .replace("{website_context}", website_context[:2000] if website_context else "Keine Webseite verfuegbar.") \
                                    .replace("{youtube_context}", yt_summary) \
                                    .replace("{linkedin_context}", li_summary)
+        
+        # If the custom prompt didn't include research placeholders, prepend the research block
+        # so Claude ALWAYS has full access to the company's website, YouTube channel, and transcripts!
+        if company_name not in user_prompt or yt_summary not in user_prompt:
+            base_prompt = f"{research_block}\n\nCOPYWRITING GUIDELINES:\n{user_prompt}"
+        else:
+            base_prompt = user_prompt
     else:
         # User's Updated Master Prompt
         base_prompt = f"""
@@ -209,7 +232,8 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
             {"role": "user", "content": prompt}
         ],
         "temperature": 0.3,
-        "max_tokens": 1500
+        "max_tokens": 2500,
+        "reasoning": {"effort": "none"}
     }
 
     try:
@@ -217,50 +241,37 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
             response = await client.post(url, json=payload, headers=headers, timeout=90.0)
             if response.status_code == 200:
                 data = response.json()
-                content = data["choices"][0]["message"]["content"].strip()
-                
-                # Strip markdown blocks if present
-                if content.startswith("```json"):
-                    content = content[7:]
-                elif content.startswith("```"):
-                    content = content[3:]
-                if content.endswith("```"):
-                    content = content[:-3]
-                
-                # Sanitize the output to remove invalid control characters before parsing
-                sanitized_content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', content)
-                parsed = json.loads(sanitized_content.strip(), strict=False)
-                
-                # Apply strict programmatic sanitation to guarantee ZERO hyphens or dashes
-                for key in ["email_1", "email_2"]:
-                    if key in parsed:
-                        if "subject" in parsed[key]:
-                            parsed[key]["subject"] = strip_hyphens_and_dashes(parsed[key]["subject"])
-                        if "body" in parsed[key]:
-                            parsed[key]["body"] = strip_hyphens_and_dashes(parsed[key]["body"])
-                
-                return parsed
-            else:
-                logger.error(f"OpenRouter API Error: {response.status_code} - {response.text}")
-                # Fallback to Claude 3 Haiku if 3.5 Haiku fails
-                fallback_payload = dict(payload)
-                fallback_payload["model"] = "anthropic/claude-haiku-4.5"
-                fb_response = await client.post(url, json=fallback_payload, headers=headers, timeout=90.0)
-                if fb_response.status_code == 200:
-                    fb_data = fb_response.json()
-                    fb_content = fb_data["choices"][0]["message"]["content"].strip()
-                    if fb_content.startswith("```json"): fb_content = fb_content[7:]
-                    elif fb_content.startswith("```"): fb_content = fb_content[3:]
-                    if fb_content.endswith("```"): fb_content = fb_content[:-3]
-                    parsed = json.loads(fb_content.strip())
+                choices = data.get("choices")
+                if choices and len(choices) > 0 and choices[0].get("message", {}).get("content"):
+                    content = choices[0]["message"]["content"].strip()
+                    
+                    # Strip markdown blocks if present
+                    if content.startswith("```json"):
+                        content = content[7:]
+                    elif content.startswith("```"):
+                        content = content[3:]
+                    if content.endswith("```"):
+                        content = content[:-3]
+                    
+                    # Sanitize the output to remove invalid control characters before parsing
+                    sanitized_content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', content)
+                    parsed = json.loads(sanitized_content.strip(), strict=False)
+                    
+                    # Apply strict programmatic sanitation to guarantee ZERO hyphens or dashes
                     for key in ["email_1", "email_2"]:
                         if key in parsed:
                             if "subject" in parsed[key]:
                                 parsed[key]["subject"] = strip_hyphens_and_dashes(parsed[key]["subject"])
                             if "body" in parsed[key]:
                                 parsed[key]["body"] = strip_hyphens_and_dashes(parsed[key]["body"])
+                    
                     return parsed
-                return None
+                else:
+                    logger.error(f"OpenRouter response missing content: {data}")
+            else:
+                logger.error(f"OpenRouter API Error: {response.status_code} - {response.text}")
+                
+            return None
     except Exception as e:
         logger.error(f"Error generating German email sequence for {contact_name} at {company_name}: {e}")
         return None
