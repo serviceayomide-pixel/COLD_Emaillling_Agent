@@ -144,17 +144,24 @@ async def run_pipeline():
     """Main worker entry point. Runs every minute via Celery Beat."""
     print("Outreach worker pipeline starting check...")
     
-    # HARDCODED RULE: Only send between 7 AM and 3 PM Germany time
+    # HARDCODED RULE: Only send between 7 AM and 5 PM Germany time, Monday to Friday (exempt weekends)
     now_utc = datetime.now(timezone.utc)
     try:
         berlin_tz = zoneinfo.ZoneInfo("Europe/Berlin")
         now_berlin = now_utc.astimezone(berlin_tz)
-        if now_berlin.hour < 7 or now_berlin.hour >= 15:
-            print(f"Current time in Germany is {now_berlin.strftime('%H:%M')}. Outside sending window (07:00 - 15:00). Pausing outreach...")
+        
+        # Weekend check: 5 = Saturday, 6 = Sunday
+        if now_berlin.weekday() >= 5:
+            print(f"Today is {now_berlin.strftime('%A')}. Weekend outreach is paused. Resuming Monday at 07:00 Germany time.")
+            return
+
+        # Sending window check: 07:00 to 17:00 (7 AM - 5 PM)
+        if now_berlin.hour < 7 or now_berlin.hour >= 17:
+            print(f"Current time in Germany is {now_berlin.strftime('%H:%M')}. Outside sending window (07:00 - 17:00). Pausing outreach...")
             return
     except Exception as e:
-        print(f"Timezone check failed: {e}. Falling back to UTC 05:00 - 13:00.")
-        if now_utc.hour < 5 or now_utc.hour >= 13:
+        print(f"Timezone check failed: {e}. Falling back to UTC 05:00 - 15:00.")
+        if now_utc.weekday() >= 5 or now_utc.hour < 5 or now_utc.hour >= 15:
             return
         
     db = SessionLocal()
@@ -202,8 +209,8 @@ async def run_pipeline():
             active_month_number = active_month.month_number
             campaign_daily_limit = active_month.daily_limit or DAILY_EMAIL_LIMIT
             
-            # 8 hour window (7AM to 3PM) = 28,800 seconds
-            base_interval_seconds = (8 * 60 * 60) // campaign_daily_limit
+            # 10 hour window (7AM to 5PM) = 36,000 seconds
+            base_interval_seconds = (10 * 60 * 60) // campaign_daily_limit
             
             # Add human randomization (jitter) between -30% and +40%
             # If base is 144s, it will randomly require between 100s and 200s gap
