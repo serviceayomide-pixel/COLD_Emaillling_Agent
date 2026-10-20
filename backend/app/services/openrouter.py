@@ -111,12 +111,19 @@ DECISION MAKER: {contact_name if has_name else "Unknown (Address them generally)
 
     if custom_prompt and custom_prompt.strip():
         # Using the user's custom prompt from the dashboard
+        from datetime import datetime
+        now_date_str = datetime.now().strftime("%Y-%m-%d")
         user_prompt = custom_prompt.replace("{contact_name}", contact_name) \
                                    .replace("{company_name}", company_name) \
                                    .replace("{job_title}", title_info) \
                                    .replace("{website_context}", website_context[:2000] if website_context else "Keine Webseite verfuegbar.") \
                                    .replace("{youtube_context}", yt_summary) \
-                                   .replace("{linkedin_context}", li_summary)
+                                   .replace("{video_context}", yt_summary) \
+                                   .replace("{linkedin_context}", li_summary) \
+                                   .replace("{current_date}", now_date_str) \
+                                   .replace("{news_context}", "Keine separaten News-Daten vorhanden.") \
+                                   .replace("{careers_context}", "Keine separaten Karriereseite-Daten vorhanden.") \
+                                   .replace("{marketing_context}", "Keine separaten Marketingmaterialien vorhanden.")
         
         # If the custom prompt didn't include research placeholders, prepend the research block
         # so Claude ALWAYS has full access to the company's website, YouTube channel, and transcripts!
@@ -258,7 +265,7 @@ CRITICAL JSON RULE: You MUST escape any double quotes inside the email body usin
                     parsed = json.loads(sanitized_content.strip(), strict=False)
                     
                     # Apply strict programmatic sanitation to guarantee ZERO hyphens or dashes
-                    for key in ["email_1", "email_2"]:
+                    for key in ["email_1", "email_2", "email_3", "email_4"]:
                         if key in parsed:
                             if "subject" in parsed[key]:
                                 parsed[key]["subject"] = strip_hyphens_and_dashes(parsed[key]["subject"])
