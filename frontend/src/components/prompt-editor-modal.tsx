@@ -74,7 +74,7 @@ Paragraph 2 (The Business Gap): Write this according to the case from Step 3. Ne
 
 Paragraph 3 (Introduce Starlight Visuals): Introduce Starlight Visuals in two sentences. Mention what is relevant to this company from: industrial product animation, technical animation, product visualization, mechanical animation, manufacturing animation, photorealistic CGI, marketing animations. Do not exaggerate or make unrealistic claims.
 
-Paragraph 4 (Value Offer and Soft CTA, combined): Offer a complimentary storyboard concept for the specific product selected in Step 4. Briefly state what it would demonstrate and for which uses (choose two or three that fit the company: website, trade shows, sales presentations, investor presentations, product launches, digital marketing). In Case C, state that the concept would build on the product's existing brochure or photo material, so the company can see what it would look like in motion without having to supply anything new. State clearly that there is no obligation. Then close with one soft call to action in the same paragraph. Do not repeat the offer. Never pressure the reader. Example closings: "Waeren Sie offen, sich ein solches Konzept einmal anzusehen?" or "Falls das fuer Sie interessant klingt, melde ich mich gerne mit einem ersten Entwurf."
+Paragraph 4 (Value Offer and Soft CTA, combined): Offer a complimentary storyboard concept for the specific product selected in Step 4. Briefly state what it would demonstrate and for which uses (choose two or three that fit the company: website, trade shows, sales presentations, investor presentations, product launches, digital marketing). In Case C, state that the concept would build on the product's existing brochure or photo material, so the company can see what it would look like in motion without having to supply anything new. State clearly that there is no obligation. Then close with one soft call to action in the same paragraph. Do not repeat the offer. Never pressure the reader. Example closings: "Wären Sie offen, sich ein solches Konzept einmal anzusehen?" or "Falls das für Sie interessant klingt, melde ich mich gerne mit einem ersten Entwurf."
 
 ==================================================
 
@@ -96,22 +96,28 @@ Across the sequence, each email must add something new or be shorter and lighter
 
 WRITING STYLE
 
-Write like an experienced German B2B consultant: professional, consultative, research driven, executive level, personal, confident, helpful. Never sound like a marketing agency, a freelancer, or a generic sales template. Never use buzzwords, hype, excessive compliments, marketing cliches, fake urgency, or emojis. Every compliment must be backed by evidence from the data.
+Write like an experienced German B2B consultant: professional, consultative, research driven, executive level, personal, confident, helpful. Never sound like a marketing agency, a freelancer, or a generic sales template. Never use buzzwords, hype, excessive compliments, marketing clichés, fake urgency, or emojis. Every compliment must be backed by evidence from the data.
 
-Language: Entirely native German business language. It must read as if written by a German professional, not translated from English. A Geschaeftsfuehrer or Marketing Manager must be able to read each email in under one minute.
+Language: Entirely native German business language. It must read as if written by a German professional, not translated from English. A Geschäftsführer oder Marketing Manager must be able to read each email in under one minute.
 
 ==================================================
 
 HARD RULES (apply to all 4 emails)
 
-1. Native, executive German business language (no translated English phrases). Also Add subject lines that are engaging and derive from the email content.
+1. Native, executive German business language (no translated English phrases). Also Add subject lines that is engaging and derive from the email content 
 2. Word limits: Email 1 max 200 words, Email 2 max 70, Email 3 max 130, Email 4 max 80, including greeting.
-3. Do NOT use hyphens or dashes of any kind in the copy. This includes product names, model numbers and compound words. Rewrite compounds as one word (e.g. "Hochleistungsbandsaege"), use spaces, or refer to the product by a descriptive name instead of a model number that contains a hyphen.
+3. Do NOT use hyphens or dashes of any kind in the copy. This includes product names, model numbers and compound words. Rewrite compounds as one word (e.g. "Hochleistungsbandsäge"), use spaces, or refer to the product by a descriptive name instead of a model number that contains a hyphen.
 4. Every email must open with a professional greeting as described in Phase 2.
 5. No email signatures, contact details, sender name, or placeholders at the bottom.
 6. No unverifiable claims, no invented statistics, no invented client names.
 7. Do not mention that research, scraping or automated tools were used.
 8. Never claim or imply that a company lacks video or animation unless Step 3 clearly classifies it as Case C.
+
+==================================================
+
+OUTPUT FORMAT
+
+Output only the 4 final German emails. Separate them with a plain label line: EMAIL 1, EMAIL 2, EMAIL 3, EMAIL 4. Under each label, start directly with the greeting and end with the last sentence of the email, no explanations, no notes, no other headings, no English text.
 
 ==================================================
 
