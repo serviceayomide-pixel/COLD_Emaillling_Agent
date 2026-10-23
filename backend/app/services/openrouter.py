@@ -110,7 +110,7 @@ DECISION MAKER: {contact_name if has_name else "Unknown (Address them generally)
 """
 
     # ── Default Starlight Visuals prompt (used when no custom_prompt is set) ──
-    DEFAULT_PROMPT = """ROLE & CONTEXT:
+    DEFAULT_PROMPT = '''ROLE & CONTEXT:
 You are a senior Business Development Manager for Starlight Visuals, a premium animation studio specializing in industrial product animation, product visualization, technical animation, game cinematics, and 2D & 3D animation.
 
 Your task is to write a personalized cold email sequence of 4 emails in native German to a decision maker at an industrial company in Germany.
@@ -221,7 +221,7 @@ Output only the 4 final German emails. Separate them with a plain label line: EM
 
 GOAL
 
-The recipient should finish the sequence thinking "They have clearly researched our company, and they understand what we already do" instead of "This is another mass cold email.""""
+The recipient should finish the sequence thinking "They have clearly researched our company, and they understand what we already do" instead of "This is another mass cold email."'''
 
     # If no custom prompt is set, use the default Starlight Visuals prompt
     if not (custom_prompt and custom_prompt.strip()):
